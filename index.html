@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BotW Cooking Pot</title>
+<style>
+:root{--bg:#e9eef0;--panel:#f8fafb;--ink:#17282e;--muted:#587078;--line:#c6d3d8;--accent:#0e7c8c;--gold:#b8741a;--warn:#a33b2c;box-sizing:border-box}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1c21;--panel:#162830;--ink:#e3eef0;--muted:#8fa9b1;--line:#29414a;--accent:#4fd1d9;--gold:#e2a43f;--warn:#e58a78}}
+*{box-sizing:inherit}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,sans-serif}
+h1,h2,.big{font-family:'Palatino Linotype',Palatino,Georgia,serif;font-weight:600}
+header{padding:20px 24px 4px}h1{margin:0;font-size:28px}header p{margin:4px 0 0;color:var(--muted);max-width:70ch}
+main{display:grid;grid-template-columns:minmax(0,1fr) clamp(240px,34vw,440px);gap:20px;padding:16px 24px 40px;align-items:start}
+@media(max-width:700px){main{grid-template-columns:1fr}}
+section,aside>div{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px}
+aside{position:sticky;top:12px;display:grid;gap:14px;max-height:calc(100vh - 24px);overflow:auto}@media(max-width:700px){aside{position:static;max-height:none}}
+h2{margin:0 0 8px;font-size:19px}
+.bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+input,select,button{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:5px 8px}
+button{cursor:pointer}button:hover{border-color:var(--accent)}button.go{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.bar input[type=search]{flex:1;min-width:140px}.bar input[type=number]{width:70px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:8px}
+.tile{border:4px solid var(--line);border-radius:6px;padding:4px;display:flex;flex-direction:column;gap:4px}
+.pick{border:0;background:none;padding:0;text-align:center;display:flex;flex-direction:column;gap:4px;align-items:stretch}
+.pick b{font-size:12px;font-weight:600;line-height:1.2;min-height:2.4em}
+.sq{aspect-ratio:1;position:relative;display:grid;place-items:center;background:#ffffff40;border-radius:4px;overflow:hidden}
+.sq img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}.ph{font:600 20px Georgia,serif;color:var(--muted)}
+.own{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted)}.own input{width:54px;padding:2px 4px}
+.fl{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.fl button{border-width:2px;padding:3px 8px;font-size:13px}.fl button.on{background:var(--accent);color:#fff;border-color:var(--accent)}.fl i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.leg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted);margin:0 0 8px}.leg i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-2px}
+.leg .b{background:none;border:3px solid}
+.set{display:flex;align-items:center;gap:8px;margin-bottom:6px}.set span:first-child{width:62px;color:var(--muted)}.set input{width:64px}.ico{color:#d6336c;letter-spacing:1px;word-break:break-all}
+.cw{container-type:inline-size}.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0 10px}.chips button{border-width:3px;padding:5px 2px}@container (max-width:299px){.chips{grid-template-columns:repeat(2,1fr)}}@container (max-width:199px){.chips{grid-template-columns:1fr}}.chips button.on{background:var(--accent);color:#fff}
+.chip{margin:0 6px 6px 0}.muted{color:var(--muted)}.note{font-size:12px;margin:2px 0 8px}
+.big{font-size:26px;margin:6px 0}.price{font-size:40px;color:var(--gold);font-family:'Palatino Linotype',Georgia,serif;line-height:1}
+dl{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin:10px 0 0}dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}dt{color:var(--muted)}
+.warn{color:var(--warn)}.res{border-top:1px solid var(--line);padding:10px 0}.res b{font-size:17px}.pos{color:var(--accent)}
+.hi{height:18px;width:auto;vertical-align:middle}.si{height:26px;vertical-align:middle}.pd{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 10px;font-size:14px}details{margin-top:8px;color:var(--muted);font-size:13px}
+</style></head><body>
+<header><h1>BotW Cooking Pot</h1><p>Build a pot to see what it makes and what it sells for. Enter the ingredients you own, choose what you want to cook, and rank the best pots by sell price, hearts, effect or duration.</p></header>
+<main>
+<section><h2>Ingredients</h2>
+<div class="bar"><button id="sv">Save list</button><button id="ld">Load list</button><input type="file" id="fi" accept=".json,application/json" hidden>
+<input type="number" id="all" min="0" max="999" placeholder="Qty" aria-label="Quantity for all"><button id="apply">Set all items</button></div>
+<div class="bar"><input type="search" id="rq" placeholder="Search recipes (e.g. Steamed Fish)" aria-label="Search recipes"><label><input type="checkbox" id="own"> Owned only</label></div>
+<div id="rinfo"></div>
+<div class="fl" id="leg"></div><div class="leg" id="leg2"></div>
+<div class="grid" id="list"></div></section>
+<aside>
+<div><h2>Pot</h2><div id="pot"></div><div id="out"></div><button id="clr">Empty pot</button> <button class="go" id="cookit">Cook</button></div>
+<div><h2>Cook from what I own</h2>
+<div class="set"><span>Hearts</span><button data-h="-1" aria-label="Fewer hearts">&lsaquo;</button><input type="number" id="hn" min="3" max="30" aria-label="Hearts"><button data-h="1" aria-label="More hearts">&rsaquo;</button><span class="ico" id="hh"></span></div>
+<div class="set"><span>Stamina</span><button data-s="-1" aria-label="Less stamina">&lsaquo;</button><input type="number" id="sn" min="5" max="15" aria-label="Stamina"><button data-s="1" aria-label="More stamina">&rsaquo;</button><span class="ico" id="ss" style="color:#2f9e44"></span></div>
+<span class="muted">Effect</span><div class="cw"><div class="chips" id="effs"></div></div>
+<div class="pd" id="pdbox"><label><input type="radio" name="pd" value="bal"> Max power + balanced duration</label><label><input type="radio" name="pd" value="max"> Max power + max duration</label></div>
+<div class="bar"><label><input type="checkbox" id="meals"> Meals</label><label><input type="checkbox" id="elix"> Elixirs</label></div>
+<div class="bar"><label>Rank by <select id="rank"><option value="price">Sell price</option><option value="net">Net gain</option><option value="hearts">Hearts restored</option><option value="effect">Effect bonus</option><option value="dur">Max duration</option></select></label><button class="go" id="find">Look Up</button></div>
+<div id="best"><p class="muted">Enter quantities on the ingredient tiles, then click Look Up.</p></div>
+<details><summary>How results are worked out</summary>
+<p>Sell price = sum of ingredient sell values &times; a factor for the number of items (1: 1.5, 2: 1.8, 3: 2.1, 4: 2.4, 5: 2.8), rounded down, then up to the next 10. Failed recipes sell for 2. Net gain = sell price minus the ingredients' raw sell value.</p>
+<p>Hearts: cooking doubles each ingredient's raw hearts, capped at your hearts. A Hearty dish fully restores and adds the points as temporary hearts. Elixirs restore none. Fish, eggs, honey and a few others have no heart data and count as 0. Effects: points add up, one effect per pot (mixed effects cancel), and tiers use the wiki thresholds. Points come from the community ingredient chart; Energizing amounts are the stamina fifths each item restores. Duration: each ingredient adds its listed time; extra copies of pantry items (eggs, dairy, grains, spices) and dragon parts add 30 s; capped at 30:00. Energizing is capped by your stamina. "Balanced" duration counts up to 10:00 only, then prefers the cheaper pot.</p>
+<p>Look Up only uses ingredients currently shown (filters and recipe search apply). To keep it fast, the finder only combines the best owned candidates (those carrying the chosen effect plus the top fillers by price, hearts and duration). A pot only counts as a recipe if every item belongs to it. The game's possible buy-price cap isn't modelled.</p></details></div>
+</aside></main>
+<script src="data.js"></script>
+<script src="images.js"></script>
+<script src="descriptions.js"></script>
+<script>
+const F=[0,1.5,1.8,2.1,2.4,2.8],price=(n,s)=>Math.max(2,10*Math.ceil(Math.floor(+(F[n]*s).toFixed(6))/10));
+const M={};MATS.forEach(([n,c,s,p,b,img,h,pt,t])=>M[n]={n,c,s,p,b,img,h,pt,t});const names=Object.keys(M);
+const inCat=(...c)=>names.filter(n=>c.includes(M[n].c));
+const HERBS=['Cool Safflina','Warm Safflina','Electric Safflina','Swift Violet','Mighty Thistle','Armoranth','Blue Nightshade','Silent Princess'];
+const veg=inCat('Vegetable / Herb / Flower');
+const P={'any raw meat':inCat('Meat'),'any mushroom':inCat('Mushroom'),'any fish':inCat('Fish'),'any seafood':inCat('Fish','Crab / Snail'),'any crab or snail':inCat('Crab / Snail'),
+'any crab':inCat('Crab / Snail').filter(n=>/Crab/.test(n)),'any porgy':inCat('Fish').filter(n=>/Porgy/.test(n)),'any fruit':inCat('Fruit'),'any vegetable':veg,'any vegetable, herb or flower':veg,
+'any carrot':names.filter(n=>/Carrot/.test(n)),'any radish':names.filter(n=>/Radish/.test(n)),'any monster part or ancient (guardian) part':inCat('Monster Part','Ancient (Guardian) Part')};
+function res(t){t=t.trim();let l=t.toLowerCase();
+if(l.startsWith('any herb or flower'))return HERBS;
+if(l[0]=='('&&l.endsWith(')')&&l.includes(' or ')){t=t.slice(1,-1);l=l.slice(1,-1)}
+if(P[l])return P[l];if(l=='any other fruit')return P['any fruit'];
+if(l.startsWith('any carrot or'))return P['any carrot'].concat([t.split(' or ')[1].trim()]);
+if(l.includes(' or ')&&!l.startsWith('any'))return t.split(/\s+or\s+/).flatMap(res);
+return M[t]?[t]:[]}
+function toks(s){const o=[];let d=0,c='';for(const ch of s){if(ch=='(')d++;if(ch==')')d--;if(ch=='+'&&!d){o.push(c);c=''}else c+=ch}o.push(c);return o}
+const SPEC=['Dubious Food','Rock-Hard Food','Fairy Tonic'];
+const REC=RECS.filter(r=>!SPEC.includes(r[0])).map(([name,cat,ing])=>{
+const m=ing.match(/^(\d) different kinds of (.+)$/);
+if(m)return{name,kinds:1,k:+m[1],all:P['any '+m[2]]||veg};
+const t=toks(ing),slots=t.map(res);return{name,elix:cat=='Elixir',slots,k:slots.length,oth:t.map(x=>/other fruit/i.test(x)),all:[].concat(...slots)}});
+const BOOST=n=>M[n].c=='Dragon Part'||n=='Star Fragment',val=n=>BOOST(n)?1:M[n].s;
+function fits(r,u){if(u.some(x=>!r.all.includes(x)))return false;if(r.kinds)return new Set(u).size>=r.k;
+const k=r.k;if(u.length<k)return false;const used=[],asg=[];
+const go=i=>{if(i==k)return true;for(let j=0;j<u.length;j++){if(used[j]||!r.slots[i].includes(u[j]))continue;if(r.oth[i]&&u[j]==u[asg[0]])continue;used[j]=1;asg[i]=j;if(go(i+1))return true;used[j]=0}return false};return go(0)}
+function dish(items){const u=items.filter(n=>!BOOST(n)),n=items.length,S=items.reduce((a,x)=>a+val(x),0);let name,fixed=false;
+const cr=u.filter(x=>M[x].c=='Critter'),pt=u.filter(x=>/Monster Part|Ancient/.test(M[x].c));
+if(u.includes('Fairy')){name='Fairy Tonic';fixed=true}
+else if(u.some(x=>M[x].c=='Ore / Gem / Misc')){name='Rock-Hard Food';fixed=true}
+else if(!u.length){name='Boosters only';fixed=true}
+else if(cr.length&&pt.length&&cr.length+pt.length==u.length){const e=REC.find(r=>r.elix&&cr.every(c=>r.slots[0].includes(c)));name=e?e.name:'Elixir (mixed effects)'}
+else if(cr.length||pt.length){name='Dubious Food';fixed=true}
+else{let b=null;for(const r of REC)if(!r.elix&&fits(r,u)&&(!b||r.k>b.k))b=r;name=b?b.name:'No matching recipe (Dubious Food)';fixed=!b}
+return{name,fixed,S,n,price:fixed?2:price(n,S),u,elix:!!(cr.length&&pt.length&&cr.length+pt.length==u.length)}}
+
+const DESC=typeof DESCRIPTIONS!=='undefined'?DESCRIPTIONS:{};
+const IMGS=(typeof IMAGES!=='undefined'?IMAGES:[]).map(f=>{const m=f.match(/^(\d+)-(.+)\.png$/i);return m&&{f,n:+m[1],k:m[2].replace(/[^A-Za-z]/g,'').toLowerCase()}}).filter(Boolean).sort((a,b)=>a.n-b.n||(a.f<b.f?-1:1));
+const AL={heartydurian:['heartbonusdurian'],stamellashroom:['staminellashroom']},KE=['keesewing','icekeesewing','firekeesewing','electrickeesewing'],kw=IMGS.filter(i=>i.k=='keesewing');
+names.forEach(n=>{const k=n.replace(/[^A-Za-z]/g,'').toLowerCase(),i=KE.indexOf(k);let im=IMGS.find(x=>x.k==k||(AL[k]||[]).includes(x.k));if(!im&&i>=0)im=kw[i];M[n].img=im?im.f:'';M[n].o=im?im.n:1e6});
+names.sort((a,b)=>M[a].o-M[b].o||M[a].img.localeCompare(M[b].img));
+const CATC={'Fruit':'#f59f00','Mushroom':'#9c36b5','Vegetable / Herb / Flower':'#2f9e44','Meat':'#e03131','Fish':'#1971c2','Crab / Snail':'#0c8599','Other Food / Seasoning':'#a47148','Monster Part':'#6c757d','Critter':'#74b816','Ancient (Guardian) Part':'#3bc9db','Dragon Part':'#ffa94d','Ore / Gem / Misc':'#adb5bd','Fairy':'#f783ac','Star Fragment':'#ffd43b'};
+const EFC={Energizing:'#0F0',Chilly:'#0FF',Spicy:'#F60',Electro:'#FF0',Hasty:'#90F',Mighty:'#990',Tough:'#660',Sneaky:'#306',Hearty:'#F00',Enduring:'#FC0',Fireproof:'#C2255C'};
+const effs=['Hearty','Energizing','Enduring','Hasty','Mighty','Tough','Sneaky','Electro','Spicy','Chilly','Fireproof'].filter(e=>MATS.some(m=>m[3]==e)),EL={};MATS.forEach(m=>{if(m[3]&&m[4]&&!EL[m[3]])EL[m[3]]=m[4]});
+const TH={Mighty:[1,5,7],Tough:[1,5,7],Sneaky:[1,6,9],Hasty:[1,5,7],Electro:[1,4,6],Spicy:[1,6],Chilly:[1,6],Fireproof:[1]},EN=[0,1,2,4,5,7,8,9,11,12,14,15];
+const HI=n=>`<img class="hi" src="h${n}.webp" alt="" onerror="this.replaceWith('\u2665')">`,heartsHTML=x=>{x=Math.round(x*4)/4;if(!x)return'0';const f=Math.floor(x),q=Math.round((x-f)*4);return HI(4).repeat(f)+(q?HI(q):'')},staHTML=n=>n>0?`<img class="si" src="s${String(Math.min(15,n)).padStart(2,'0')}.webp" alt="${n}" onerror="this.replaceWith('${n}')">`:'0';
+const $=id=>document.getElementById(id),fmt=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+let S={hearts:8,stam:10,eff:'',pd:'max',rank:'price',meals:true,elix:true,groups:[]},inv={},pot=[],found=[];
+try{const d=JSON.parse(localStorage.getItem('botwState2')||'{}');inv=d.inv||{};S={...S,...d.S}}catch(e){}
+const save=()=>{try{localStorage.setItem('botwState2',JSON.stringify({inv,S}))}catch(e){}};
+const GR=Object.keys(CATC),grp=n=>n=='Fairy'?'Fairy':n=='Star Fragment'?'Star Fragment':M[n].c,NOSTD=['Dragon Part','Fairy','Star Fragment','Ore / Gem / Misc','Ancient (Guardian) Part'];let rset=null;
+const vis=n=>rset?rset.has(n):!S.groups.length||S.groups.includes(grp(n));
+function renderLeg(){$('leg').innerHTML=`<button data-g="" class="${S.groups.length?'':'on'}">All</button><button data-g="*std" title="Hides dragon parts, fairies, stars, ore and ancient parts">Food, critters, monster parts</button>`+GR.map(c=>`<button data-g="${c}" class="${S.groups.includes(c)?'on':''}" style="border-color:${CATC[c]}"><i style="background:${CATC[c]}"></i>${c}</button>`).join('')}
+renderLeg();$('leg2').innerHTML='<span>Borders:</span>'+effs.map(e=>`<span><i class="b" style="border-color:${EFC[e]||'#888'}"></i>${e}</span>`).join('');
+function recSearch(){const q=$('rq').value.trim().toLowerCase();rset=null;$('rinfo').innerHTML='';if(!q)return;const ms=RECS.filter(r=>r[0].toLowerCase().includes(q));rset=new Set();
+if(!ms.length){$('rinfo').innerHTML='<p class="warn note">No recipe matches.</p>';return}
+ms.slice(0,8).forEach(r=>{const x=REC.find(y=>y.name==r[0]);if(x)x.all.forEach(n=>rset.add(n))});
+$('rinfo').innerHTML=ms.slice(0,6).map(r=>`<p class="note"><b>${r[0]}</b>: ${r[2]}${r[3]?' <span class="muted">('+r[3]+')</span>':''}</p>`).join('')}
+const tip=m=>(DESC[m.n]||`${m.n}: ${m.c}${m.p?' \u00b7 '+m.p+' ('+m.b+')':''}${m.pt?' \u00b7 '+m.pt+' effect pts':''}${m.p&&TH[m.p]&&m.t?' \u00b7 +'+fmt(m.t)+' duration':''}${m.h?' \u00b7 '+m.h+' hearts raw':''} \u00b7 sells ${m.s}`).replace(/"/g,'&quot;');
+function list(){const o=$('own').checked;
+$('list').innerHTML=names.map((n,i)=>({n,i,m:M[n]})).filter(x=>vis(x.n)&&(!o||inv[x.n]>0)).map(x=>{const m=x.m;
+return`<div class="tile" style="background:${CATC[grp(x.n)]||'#888'}33;border-color:${m.p?(EFC[m.p]||'#888'):'var(--line)'}" title="${tip(m)}"><button class="pick" data-a="${x.i}"><span class="sq"><span class="ph">${x.n.split(/[^A-Za-z]+/).filter(Boolean).map(w=>w[0]).join('').slice(0,3)}</span>${m.img?`<img src="${m.img}" alt="" loading="lazy" onerror="this.remove()">`:''}</span><b>${x.n}</b></button><label class="own">Sells ${m.s}<input type="number" min="0" max="999" value="${inv[x.n]||''}" data-q="${x.i}" aria-label="Owned ${x.n}"></label></div>`}).join('')||'<p class="muted">No ingredients match.</p>'}
+function setUI(){$('hn').value=S.hearts;$('hh').innerHTML=heartsHTML(S.hearts);$('sn').value=S.stam;$('ss').innerHTML=staHTML(S.stam);
+$('meals').checked=S.meals;$('elix').checked=S.elix;$('rank').value=S.rank;
+document.querySelectorAll('[name=pd]').forEach(r=>r.checked=r.value==S.pd);$('pdbox').style.display=TH[S.eff]?'flex':'none';
+$('effs').innerHTML=[''].concat(effs).map(e=>`<button data-e="${e}" class="${S.eff==e?'on':''}" title="${EL[e]||''}" style="border-color:${e?(EFC[e]||'#888'):'var(--line)'}">${e||'Any'}</button>`).join('')}
+function evalPot(items,full){const u=items.filter(x=>!BOOST(x)),cr=u.filter(x=>M[x].c=='Critter'),pt=u.filter(x=>/Monster Part|Ancient/.test(M[x].c)),n=items.length,raw=items.reduce((a,x)=>a+val(x),0);let elix=false,name='';
+if(full){const d=dish(items);if(d.fixed)return null;elix=d.elix;name=d.name}
+else{if(u.some(x=>x=='Fairy'||M[x].c=='Ore / Gem / Misc'))return null;if(cr.length||pt.length){if(!(cr.length&&pt.length&&cr.length+pt.length==u.length))return null;elix=true}else if(!u.length)return null}
+const ps=[...new Set(u.map(x=>M[x].p).filter(Boolean))],eff=ps.length==1?ps[0]:'';let pts=0;if(eff)u.forEach(x=>{if(M[x].p==eff)pts+=M[x].pt||1});
+let lvl=0,temp=0,fifths=0,dur=0;
+if(TH[eff]){lvl=TH[eff].filter(t=>pts>=t).length;const c={};items.forEach(x=>c[x]=(c[x]||0)+1);for(const k in c){const t=M[k].t||30;dur+=t+(c[k]-1)*(/Other Food|Dragon/.test(M[k].c)||k=='Star Fragment'?30:t)}dur=Math.min(1800,dur)}
+else if(eff=='Hearty')temp=Math.min(30,Math.floor(pts));else if(eff=='Energizing')fifths=Math.min(S.stam,15,Math.floor(pts));else if(eff=='Enduring')fifths=Math.min(10,Math.floor(pts));
+const sumH=u.reduce((a,x)=>a+(M[x].h||0),0),hearts=elix?0:(eff=='Hearty'?S.hearts:Math.min(S.hearts,2*sumH)),p=price(n,raw);
+return{name,elix,eff,lvl,temp,fifths,dur,hearts,price:p,raw,net:p-raw,n,pow:TH[eff]?lvl:eff=='Hearty'?temp:fifths}}
+const effTxt=e=>!e.eff?'No effect':TH[e.eff]?`${e.eff} ${e.lvl}${e.lvl==TH[e.eff].length?' (max)':''}`:e.eff=='Hearty'?`Hearty +${e.temp} temp hearts`:`${e.eff} ${(e.fifths/5).toFixed(1)} wheel ${e.eff=='Energizing'?staHTML(e.fifths):''}`;
+const dc=e=>S.pd=='bal'?Math.min(e.dur,600):e.dur,KEYS={price:e=>[e.price,e.net],net:e=>[e.net,e.price],hearts:e=>[e.hearts+e.temp,e.price],effect:e=>[e.pow,dc(e),-e.raw],dur:e=>[e.dur,e.pow,-e.raw]};
+const cmpK=(a,b)=>{for(let i=0;i<a.length;i++)if(a[i]!=b[i])return b[i]-a[i];return 0};
+function showPot(){$('pot').innerHTML=pot.map((n,i)=>`<button class="chip" data-r="${i}" title="Remove">${n} \u00d7</button>`).join('')||'<p class="muted">Click a tile to add up to five ingredients.</p>';
+if(!pot.length){$('out').innerHTML='';return}
+const d=dish(pot),e=evalPot(pot,true);
+$('out').innerHTML=`<div class="big">${d.name}</div><div class="price">${d.price}</div><dl><dt>Items</dt><dd>${d.n} (factor ${F[d.n]})</dd><dt>Ingredients' raw value</dt><dd>${d.S}</dd><dt>Net gain</dt><dd class="${d.price>=d.S?'pos':'warn'}">${d.price-d.S>0?'+':''}${d.price-d.S}</dd>${e?`${e.elix?'':`<dt>Hearts</dt><dd>${heartsHTML(e.hearts)}${e.temp?' + '+e.temp+' temp':''}</dd>`}<dt>Effect</dt><dd>${effTxt(e)}</dd>${TH[e.eff]?`<dt>Duration</dt><dd>${fmt(e.dur)}</dd>`:''}`:''}</dl>${d.fixed?'<p class="warn">This pot fails as a recipe and sells for 2.</p>':''}<br>`}
+function best(K){const eff=S.eff,have=names.filter(n=>inv[n]>0&&vis(n));if(!have.length)return{out:[],cnt:0};
+const top=(a,f,k)=>a.slice().sort((x,y)=>f(y)-f(x)).slice(0,k),fx=have.filter(n=>M[n].p),fl=have.filter(n=>!M[n].p),cand=new Set();
+(eff?fx.filter(n=>M[n].p==eff):[].concat(...effs.map(e=>top(fx.filter(n=>M[n].p==e),n=>M[n].pt||1,2)))).forEach(n=>cand.add(n));
+[n=>M[n].s,n=>M[n].h||0,n=>M[n].t||30].forEach(f=>top(fl,f,eff?6:4).forEach(n=>cand.add(n)));
+const cs=[...cand].slice(0,30),lim=1500,tl=[],cur=[];let cnt=0;
+const add=()=>{cnt++;const e=evalPot(cur,false);if(!e||(e.elix?!S.elix:!S.meals)||(eff&&e.eff!=eff))return;const k=KEYS[S.rank](e);if(tl.length>=lim&&cmpK(k,tl[tl.length-1].k)>=0)return;const c={k,items:cur.slice()};let i=tl.length;tl.push(c);while(i>0&&cmpK(tl[i-1].k,k)>0){tl[i]=tl[i-1];i--}tl[i]=c;if(tl.length>lim)tl.pop()};
+const rec=i=>{if(cur.length)add();if(cur.length>=5)return;for(let j=i;j<cs.length;j++){const q=Math.min(inv[cs[j]],5-cur.length);for(let c=1;c<=q;c++){cur.push(cs[j]);rec(j+1)}for(let c=0;c<q;c++)cur.pop()}};
+rec(0);const out=[];for(const c of tl){const e=evalPot(c.items,true);if(!e||(e.elix?!S.elix:!S.meals)||(eff&&e.eff!=eff))continue;out.push({items:c.items,e});if(out.length>=K)break}return{out,cnt}}
+function showBest(r,ms){found=r.out;if(!found.length){$('best').innerHTML='<p class="warn">No valid recipe matches. Check your quantities, effect and meal/elixir choices.</p>';return}
+$('best').innerHTML=`<p class="muted note">Checked ${r.cnt.toLocaleString()} combinations in ${(ms/1000).toFixed(2)} s.</p>`+found.map((x,i)=>{const e=x.e,cnt={};x.items.forEach(y=>cnt[y]=(cnt[y]||0)+1);
+return`<div class="res"><b>${e.name}</b> <span class="price" style="font-size:22px">${e.price}</span><div class="muted">${Object.entries(cnt).map(([k,v])=>(v>1?v+'\u00d7 ':'')+k).join(', ')}</div><div>${e.elix?'':`Hearts ${heartsHTML(e.hearts)}${e.temp?' +'+e.temp+' temp':''} \u00b7 `}${effTxt(e)}${TH[e.eff]?' \u00b7 '+fmt(e.dur):''}</div><div class="muted">${x.items.length} items \u00b7 raw ${e.raw} \u00b7 net <span class="pos">${e.net>0?'+':''}${e.net}</span> <button data-l="${i}">Load into pot</button></div></div>`}).join('')}
+document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;const d=t.dataset;
+if(d.g!==undefined){const g=d.g;S.groups=g==''?[]:g=='*std'?GR.filter(x=>!NOSTD.includes(x)):S.groups.includes(g)?S.groups.filter(x=>x!=g):S.groups.concat(g);save();renderLeg();list()}
+if(d.a!==undefined&&pot.length<5){pot.push(names[+d.a]);showPot()}
+if(d.r!==undefined){pot.splice(+d.r,1);showPot()}
+if(d.l!==undefined){pot=found[+d.l].items.slice();showPot()}
+if(d.h){S.hearts=Math.min(30,Math.max(3,S.hearts+ +d.h));setUI();save()}
+if(d.s){S.stam=Math.min(15,Math.max(5,S.stam+ +d.s));setUI();save()}
+if(d.e!==undefined){S.eff=d.e;setUI();save()}
+if(t.id=='clr'){pot=[];showPot()}
+if(t.id=='cookit'&&pot.length){pot.forEach(n=>{if(inv[n]>0){inv[n]--;if(!inv[n])delete inv[n]}});pot=[];save();list();showPot()}
+if(t.id=='find'){$('best').innerHTML='<p class="muted">Cooking\u2026</p>';setTimeout(()=>{const t0=performance.now(),r=best(6);showBest(r,performance.now()-t0)},30)}
+if(t.id=='apply'){const v=Math.max(0,parseInt($('all').value)||0);names.forEach(n=>{if(v)inv[n]=v;else delete inv[n]});save();list()}
+if(t.id=='sv'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({v:2,inv,S},null,1)],{type:'application/json'}));a.download='botw-ingredients.json';a.click()}
+if(t.id=='ld')$('fi').click()});
+$('fi').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;f.text().then(x=>{try{const d=JSON.parse(x);inv=d.inv||{};S={...S,...d.S};save();list();setUI();showPot()}catch(err){alert('That file is not a saved ingredient list.')}});e.target.value=''});
+document.addEventListener('input',e=>{const t=e.target;
+if(t.dataset.q!==undefined){const n=names[+t.dataset.q],v=Math.max(0,parseInt(t.value)||0);if(v)inv[n]=v;else delete inv[n];save()}
+if(['meals','elix'].includes(t.id)){S[t.id]=t.checked;save()}
+if(t.id=='rank'){S.rank=t.value;save()}
+if(t.name=='pd'){S.pd=t.value;save()}
+if(t.id=='own')list();if(t.id=='rq'){recSearch();list()}});
+$('hn').addEventListener('change',e=>{S.hearts=Math.min(30,Math.max(3,parseInt(e.target.value)||8));setUI();save();showPot()});
+$('sn').addEventListener('change',e=>{S.stam=Math.min(15,Math.max(5,parseInt(e.target.value)||10));setUI();save();showPot()});
+list();setUI();showPot();
+</script></body></html>
