@@ -1,5 +1,5 @@
 // Image list for the ingredient tiles. Regenerate it after renaming files: open Terminal in this folder and run
-// (echo "const IMAGES=["; ls *.png | sed 's/.*/"&",/'; echo "];") > images.js
+// (echo "const IMAGES=["; ls img/*.png | sed 's|.*/||; s/.*/"&",/'; echo "];") > images.js
 const IMAGES=[
 "01-HeartyDurian.png",
 "02-PalmFruit.png",
