@@ -413,12 +413,32 @@
             color: var(--muted);
             font-size: 13px
         }
+
+        .gm {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+            flex-wrap: wrap
+        }
+
+        .gm button {
+            border-width: 2px;
+            padding: 5px 14px;
+            font-weight: 600
+        }
+
+        .gm button.on {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent)
+        }
     </style>
 </head>
 
 <body>
     <header>
-        <h1>Legend of Zelda: Breath of the Wild Cooking Pot</h1>
+        <h1 id="ttl">Legend of Zelda Cooking Pot</h1>
+        <div class="gm" id="gm" role="group" aria-label="Game"></div>
         <p>Build a pot to see what it makes and what it sells for. Enter the ingredients you own, choose what you want
             to cook, and rank the best pots by sell price, hearts, effect or duration.</p>
     </header>
@@ -474,152 +494,256 @@
                 </div>
                 <details>
                     <summary>How results are worked out</summary>
-                    <p>Sell price = sum of ingredient sell values &times; a factor for the number of items (1: 1.5, 2:
-                        1.8, 3: 2.1, 4: 2.4, 5: 2.8), rounded down, then up to the next 10. Failed recipes sell for 2.
-                        Net gain = sell price minus the ingredients' raw sell value.</p>
-                    <p>Hearts: cooking doubles each ingredient's raw hearts, capped at your hearts. A Hearty dish fully
-                        restores and adds the points as temporary hearts. Elixirs restore none. Fish, eggs, honey and a
-                        few others have no heart data and count as 0. Effects: points add up, one effect per pot (mixed
-                        effects cancel), and tiers use the wiki thresholds. Points come from the community ingredient
-                        chart; Energizing amounts are the stamina fifths each item restores. Duration: each ingredient
-                        adds its listed time; extra copies of pantry items (eggs, dairy, grains, spices) and dragon
-                        parts add 30 s; capped at 30:00. Energizing is capped by your stamina. "Balanced" duration
-                        counts up to 10:00 only, then prefers the cheaper pot.</p>
-                    <p>Look Up only uses ingredients currently shown (filters and recipe search apply). To keep it fast,
-                        the finder only combines the best owned candidates (those carrying the chosen effect plus the
-                        top fillers by price, hearts and duration). A pot only counts as a recipe if every item belongs
-                        to it. The game's possible buy-price cap isn't modelled.</p>
-                </details>
+                    <div id="help"></div>
+                    </details>
             </div>
         </aside>
     </main>
-    <script src="data.js"></script>
+    <script src="data-botw.js"></script>
+    <script src="data-totk.js"></script>
     <script src="images.js"></script>
     <script src="descriptions.js"></script>
     <script>
-        const F = [0, 1.5, 1.8, 2.1, 2.4, 2.8], price = (n, s) => Math.max(2, 10 * Math.ceil(Math.floor(+(F[n] * s).toFixed(6)) / 10));
-        const M = {}; MATS.forEach(([n, c, s, p, b, img, h, pt, t]) => M[n] = { n, c, s, p, b, img, h, pt, t }); const names = Object.keys(M);
-        const inCat = (...c) => names.filter(n => c.includes(M[n].c));
-        const HERBS = ['Cool Safflina', 'Warm Safflina', 'Electric Safflina', 'Swift Violet', 'Mighty Thistle', 'Armoranth', 'Blue Nightshade', 'Silent Princess'];
-        const veg = inCat('Vegetable / Herb / Flower');
-        const P = {
-            'any raw meat': inCat('Meat'), 'any mushroom': inCat('Mushroom'), 'any fish': inCat('Fish'), 'any seafood': inCat('Fish', 'Crab / Snail'), 'any crab or snail': inCat('Crab / Snail'),
-            'any crab': inCat('Crab / Snail').filter(n => /Crab/.test(n)), 'any porgy': inCat('Fish').filter(n => /Porgy/.test(n)), 'any fruit': inCat('Fruit'), 'any vegetable': veg, 'any vegetable, herb or flower': veg,
-            'any carrot': names.filter(n => /Carrot/.test(n)), 'any radish': names.filter(n => /Radish/.test(n)), 'any monster part or ancient (guardian) part': inCat('Monster Part', 'Ancient (Guardian) Part')
-        };
-        function res(t) {
-            t = t.trim(); let l = t.toLowerCase();
-            if (l.startsWith('any herb or flower')) return HERBS;
-            if (l[0] == '(' && l.endsWith(')') && l.includes(' or ')) { t = t.slice(1, -1); l = l.slice(1, -1) }
-            if (P[l]) return P[l]; if (l == 'any other fruit') return P['any fruit'];
-            if (l.startsWith('any carrot or')) return P['any carrot'].concat([t.split(' or ')[1].trim()]);
-            if (l.includes(' or ') && !l.startsWith('any')) return t.split(/\s+or\s+/).flatMap(res);
-            return M[t] ? [t] : []
+        const $ = id => document.getElementById(id), fmt = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+        const DESC = typeof DESCRIPTIONS !== 'undefined' ? DESCRIPTIONS : {};
+        const HI = n => `<img class="hi" src="img/h${n}.webp" alt="" onerror="this.replaceWith('\u2665')">`, heartsHTML = x => { x = Math.round(x * 4) / 4; if (!x) return '0'; const f = Math.floor(x), q = Math.round((x - f) * 4); return HI(4).repeat(f) + (q ? HI(q) : '') }, staHTML = n => n > 0 ? `<img class="si" src="img/s${String(Math.min(15, n)).padStart(2, '0')}.webp" alt="${n}" onerror="this.replaceWith('${n}')">` : '0';
+        let S = { game: 'BotW', hearts: 8, stam: 10, eff: '', pd: 'max', rank: 'price', meals: true, elix: true, groups: [] }, invs = { BotW: {}, TotK: {} }, inv, pot = [], found = [], rset = null, G;
+
+        /* ---------- shared helpers ---------- */
+        // Images are named <Game><number>-<Item>.png (BotW001-HeartyDurian.png, TotK001-Apple.png); only the active game's prefix is used.
+        function imgList(prefix) { const re = new RegExp('^' + prefix + '(\\d+)-(.+)\\.png$', 'i'); return (typeof IMAGES !== 'undefined' ? IMAGES : []).map(f => { const m = f.match(re); return m && { f: `img/${f}`, n: +m[1], k: m[2].replace(/[^A-Za-z]/g, '').toLowerCase() } }).filter(Boolean).sort((a, b) => a.n - b.n || (a.f < b.f ? -1 : 1)) }
+        function assignImages(M, names, prefix, AL, KE) {
+            const IMGS = imgList(prefix), kw = IMGS.filter(i => i.k == 'keesewing'); AL = AL || {}; KE = KE || [];
+            names.forEach(n => { const k = n.replace(/[^A-Za-z]/g, '').toLowerCase(), i = KE.indexOf(k); let im = IMGS.find(x => x.k == k || (AL[k] || []).includes(x.k)); if (!im && i >= 0) im = kw[i]; M[n].img = im ? im.f : ''; M[n].o = im ? im.n : (M[n].o0 || 1e6) });
+            names.sort((a, b) => M[a].o - M[b].o || M[a].img.localeCompare(M[b].img))
         }
-        function toks(s) { const o = []; let d = 0, c = ''; for (const ch of s) { if (ch == '(') d++; if (ch == ')') d--; if (ch == '+' && !d) { o.push(c); c = '' } else c += ch } o.push(c); return o }
-        const SPEC = ['Dubious Food', 'Rock-Hard Food', 'Fairy Tonic'];
-        const REC = RECS.filter(r => !SPEC.includes(r[0])).map(([name, cat, ing]) => {
-            const m = ing.match(/^(\d) different kinds of (.+)$/);
-            if (m) return { name, kinds: 1, k: +m[1], all: P['any ' + m[2]] || veg };
-            const t = toks(ing), slots = t.map(res); return { name, elix: cat == 'Elixir', slots, k: slots.length, oth: t.map(x => /other fruit/i.test(x)), all: [].concat(...slots) }
-        });
-        const BOOST = n => M[n].c == 'Dragon Part' || n == 'Star Fragment', val = n => BOOST(n) ? 1 : M[n].s;
-        function fits(r, u) {
-            if (u.some(x => !r.all.includes(x))) return false; if (r.kinds) return new Set(u).size >= r.k;
-            const k = r.k; if (u.length < k) return false; const used = [], asg = [];
-            const go = i => { if (i == k) return true; for (let j = 0; j < u.length; j++) { if (used[j] || !r.slots[i].includes(u[j])) continue; if (r.oth[i] && u[j] == u[asg[0]]) continue; used[j] = 1; asg[i] = j; if (go(i + 1)) return true; used[j] = 0 } return false }; return go(0)
-        }
-        function dish(items) {
-            const u = items.filter(n => !BOOST(n)), n = items.length, S = items.reduce((a, x) => a + val(x), 0); let name, fixed = false;
-            const cr = u.filter(x => M[x].c == 'Critter'), pt = u.filter(x => /Monster Part|Ancient/.test(M[x].c));
-            if (u.includes('Fairy')) { name = 'Fairy Tonic'; fixed = true }
-            else if (u.some(x => M[x].c == 'Ore / Gem / Misc')) { name = 'Rock-Hard Food'; fixed = true }
-            else if (!u.length) { name = 'Boosters only'; fixed = true }
-            else if (cr.length && pt.length && cr.length + pt.length == u.length) { const e = REC.find(r => r.elix && cr.every(c => r.slots[0].includes(c))); name = e ? e.name : 'Elixir (mixed effects)' }
-            else if (cr.length || pt.length) { name = 'Dubious Food'; fixed = true }
-            else { let b = null; for (const r of REC) if (!r.elix && fits(r, u) && (!b || r.k > b.k)) b = r; name = b ? b.name : 'No matching recipe (Dubious Food)'; fixed = !b }
-            return { name, fixed, S, n, price: fixed ? 2 : price(n, S), u, elix: !!(cr.length && pt.length && cr.length + pt.length == u.length) }
+        const CATC = { 'Fruit': '#f59f00', 'Mushroom': '#9c36b5', 'Vegetable / Herb / Flower': '#2f9e44', 'Meat': '#e03131', 'Fish': '#1971c2', 'Crab / Snail': '#0c8599', 'Other Food / Seasoning': '#a47148', 'Monster Part': '#6c757d', 'Critter': '#74b816', 'Ancient (Guardian) Part': '#3bc9db', 'Construct Part': '#3bc9db', 'Dragon Part': '#ffa94d', 'Ore / Gem / Misc': '#adb5bd', 'Fairy': '#f783ac', 'Star Fragment': '#ffd43b' };
+        const EFC = { Energizing: '#0F0', Chilly: '#0FF', Spicy: '#F60', Electro: '#FF0', Hasty: '#90F', Mighty: '#990', Tough: '#660', Sneaky: '#306', Hearty: '#F00', Enduring: '#FC0', Fireproof: '#C2255C', Sunny: '#f08c00', Bright: '#ffe066', Rapid: '#4dabf7', Sticky: '#82c91e', Biting: '#74c0fc', Scorching: '#ff6b6b', Stormy: '#845ef7', Warding: '#495057' };
+
+        /* ---------- Breath of the Wild ---------- */
+        function makeBotW() {
+            const F = [0, 1.5, 1.8, 2.1, 2.4, 2.8], price = (n, s) => Math.max(2, 10 * Math.ceil(Math.floor(+(F[n] * s).toFixed(6)) / 10));
+            const M = {}; MATS.forEach(([n, c, s, p, b, img, h, pt, t]) => M[n] = { n, c, s, p, b, img, h, pt, t }); const names = Object.keys(M);
+            const inCat = (...c) => names.filter(n => c.includes(M[n].c));
+            const HERBS = ['Cool Safflina', 'Warm Safflina', 'Electric Safflina', 'Swift Violet', 'Mighty Thistle', 'Armoranth', 'Blue Nightshade', 'Silent Princess'];
+            const veg = inCat('Vegetable / Herb / Flower');
+            const P = {
+                'any raw meat': inCat('Meat'), 'any mushroom': inCat('Mushroom'), 'any fish': inCat('Fish'), 'any seafood': inCat('Fish', 'Crab / Snail'), 'any crab or snail': inCat('Crab / Snail'),
+                'any crab': inCat('Crab / Snail').filter(n => /Crab/.test(n)), 'any porgy': inCat('Fish').filter(n => /Porgy/.test(n)), 'any fruit': inCat('Fruit'), 'any vegetable': veg, 'any vegetable, herb or flower': veg,
+                'any carrot': names.filter(n => /Carrot/.test(n)), 'any radish': names.filter(n => /Radish/.test(n)), 'any monster part or ancient (guardian) part': inCat('Monster Part', 'Ancient (Guardian) Part')
+            };
+            function res(t) {
+                t = t.trim(); let l = t.toLowerCase();
+                if (l.startsWith('any herb or flower')) return HERBS;
+                if (l[0] == '(' && l.endsWith(')') && l.includes(' or ')) { t = t.slice(1, -1); l = l.slice(1, -1) }
+                if (P[l]) return P[l]; if (l == 'any other fruit') return P['any fruit'];
+                if (l.startsWith('any carrot or')) return P['any carrot'].concat([t.split(' or ')[1].trim()]);
+                if (l.includes(' or ') && !l.startsWith('any')) return t.split(/\s+or\s+/).flatMap(res);
+                return M[t] ? [t] : []
+            }
+            function toks(s) { const o = []; let d = 0, c = ''; for (const ch of s) { if (ch == '(') d++; if (ch == ')') d--; if (ch == '+' && !d) { o.push(c); c = '' } else c += ch } o.push(c); return o }
+            const SPEC = ['Dubious Food', 'Rock-Hard Food', 'Fairy Tonic'];
+            const REC = RECS.filter(r => !SPEC.includes(r[0])).map(([name, cat, ing]) => {
+                const m = ing.match(/^(\d) different kinds of (.+)$/);
+                if (m) return { name, kinds: 1, k: +m[1], all: P['any ' + m[2]] || veg };
+                const t = toks(ing), slots = t.map(res); return { name, elix: cat == 'Elixir', slots, k: slots.length, oth: t.map(x => /other fruit/i.test(x)), all: [].concat(...slots) }
+            });
+            const BOOST = n => M[n].c == 'Dragon Part' || n == 'Star Fragment', val = n => BOOST(n) ? 1 : M[n].s;
+            function fits(r, u) {
+                if (u.some(x => !r.all.includes(x))) return false; if (r.kinds) return new Set(u).size >= r.k;
+                const k = r.k; if (u.length < k) return false; const used = [], asg = [];
+                const go = i => { if (i == k) return true; for (let j = 0; j < u.length; j++) { if (used[j] || !r.slots[i].includes(u[j])) continue; if (r.oth[i] && u[j] == u[asg[0]]) continue; used[j] = 1; asg[i] = j; if (go(i + 1)) return true; used[j] = 0 } return false }; return go(0)
+            }
+            function dish(items) {
+                const u = items.filter(n => !BOOST(n)), n = items.length, S = items.reduce((a, x) => a + val(x), 0); let name, fixed = false;
+                const cr = u.filter(x => M[x].c == 'Critter'), pt = u.filter(x => /Monster Part|Ancient/.test(M[x].c));
+                if (u.includes('Fairy')) { name = 'Fairy Tonic'; fixed = true }
+                else if (u.some(x => M[x].c == 'Ore / Gem / Misc')) { name = 'Rock-Hard Food'; fixed = true }
+                else if (!u.length) { name = 'Boosters only'; fixed = true }
+                else if (cr.length && pt.length && cr.length + pt.length == u.length) { const e = REC.find(r => r.elix && cr.every(c => r.slots[0].includes(c))); name = e ? e.name : 'Elixir (mixed effects)' }
+                else if (cr.length || pt.length) { name = 'Dubious Food'; fixed = true }
+                else { let b = null; for (const r of REC) if (!r.elix && fits(r, u) && (!b || r.k > b.k)) b = r; name = b ? b.name : 'No matching recipe (Dubious Food)'; fixed = !b }
+                return { name, fixed, S, n, price: fixed ? 2 : price(n, S), u, elix: !!(cr.length && pt.length && cr.length + pt.length == u.length) }
+            }
+            assignImages(M, names, 'BotW', { heartydurian: ['heartbonusdurian'], stamellashroom: ['staminellashroom'] }, ['keesewing', 'icekeesewing', 'firekeesewing', 'electrickeesewing']);
+            const effs = ['Hearty', 'Energizing', 'Enduring', 'Hasty', 'Mighty', 'Tough', 'Sneaky', 'Electro', 'Spicy', 'Chilly', 'Fireproof'].filter(e => MATS.some(m => m[3] == e)), EL = {}; MATS.forEach(m => { if (m[3] && m[4] && !EL[m[3]]) EL[m[3]] = m[4] });
+            const TH = { Mighty: [1, 5, 7], Tough: [1, 5, 7], Sneaky: [1, 6, 9], Hasty: [1, 5, 7], Electro: [1, 4, 6], Spicy: [1, 6], Chilly: [1, 6], Fireproof: [1] };
+            function evalPot(items, full) {
+                const u = items.filter(x => !BOOST(x)), cr = u.filter(x => M[x].c == 'Critter'), pt = u.filter(x => /Monster Part|Ancient/.test(M[x].c)), n = items.length, raw = items.reduce((a, x) => a + val(x), 0); let elix = false, name = '';
+                if (full) { const d = dish(items); if (d.fixed) return null; elix = d.elix; name = d.name }
+                else { if (u.some(x => x == 'Fairy' || M[x].c == 'Ore / Gem / Misc')) return null; if (cr.length || pt.length) { if (!(cr.length && pt.length && cr.length + pt.length == u.length)) return null; elix = true } else if (!u.length) return null }
+                const ps = [...new Set(u.map(x => M[x].p).filter(Boolean))], eff = ps.length == 1 ? ps[0] : '', mix = ps.length > 1 ? ps : null; let pts = 0; if (eff) u.forEach(x => { if (M[x].p == eff) pts += M[x].pt || 1 });
+                let lvl = 0, temp = 0, fifths = 0, dur = 0;
+                if (TH[eff]) { lvl = TH[eff].filter(t => pts >= t).length; const c = {}; items.forEach(x => c[x] = (c[x] || 0) + 1); for (const k in c) { const t = M[k].t || 30; dur += t + (c[k] - 1) * (/Other Food|Dragon/.test(M[k].c) || k == 'Star Fragment' ? 30 : t) } dur = Math.min(1800, dur) }
+                else if (eff == 'Hearty') temp = Math.min(30, Math.floor(pts)); else if (eff == 'Energizing') fifths = Math.min(S.stam, 15, Math.floor(pts)); else if (eff == 'Enduring') fifths = Math.min(10, Math.floor(pts));
+                const sumH = u.reduce((a, x) => a + (M[x].h || 0), 0), hearts = elix ? 0 : (eff == 'Hearty' ? S.hearts : Math.min(S.hearts, 2 * sumH)), p = price(n, raw);
+                return { name, elix, eff, mix, lvl, temp, fifths, dur, hearts, price: p, raw, net: p - raw, n, pow: TH[eff] ? lvl : eff == 'Hearty' ? temp : fifths }
+            }
+            const effTxt = e => !e.eff ? (e.mix ? `None (${e.mix.join(' + ')} cancel out)` : 'No effect') : TH[e.eff] ? `${e.eff} ${e.lvl}${e.lvl == TH[e.eff].length ? ' (max)' : ''}` : e.eff == 'Hearty' ? `Hearty +${e.temp} temp hearts` : `${e.eff} ${(e.fifths / 5).toFixed(1)} wheel ${e.eff == 'Energizing' ? staHTML(e.fifths) : ''}`;
+            const recList = RECS.map(r => ({ name: r[0], text: r[2], note: r[3], all: (REC.find(y => y.name == r[0]) || { all: [] }).all }));
+            return {
+                id: 'BotW', title: 'Breath of the Wild', M, names, effs, EL, NOSTD: ['Dragon Part', 'Fairy', 'Star Fragment', 'Ore / Gem / Misc', 'Ancient (Guardian) Part'], maxCand: 30, lim: 1500, recList,
+                timed: e => !!TH[e], evalPot, effTxt, tipDur: m => m.p && TH[m.p] && m.t ? ' \u00b7 +' + fmt(m.t) + ' duration' : '',
+                cook(items) { const d = dish(items), e = evalPot(items, true); return { name: d.name, price: d.price, raw: d.S, n: d.n, factor: F[d.n], fixed: d.fixed, ev: e, msg: 'This pot fails as a recipe and sells for 2.' } },
+                help: `<p>Sell price = sum of ingredient sell values &times; a factor for the number of items (1: 1.5, 2: 1.8, 3: 2.1, 4: 2.4, 5: 2.8), rounded down, then up to the next 10. Failed recipes sell for 2. Net gain = sell price minus the ingredients' raw sell value.</p>
+                    <p>Hearts: cooking doubles each ingredient's raw hearts, capped at your hearts. A Hearty dish fully restores and adds the points as temporary hearts. Elixirs restore none. Fish, eggs, honey and a few others have no heart data and count as 0. Effects: points add up, one effect per pot (if the ingredients carry two or more different effects, including Hearty, they all cancel and the dish has no effect), and tiers use the wiki thresholds. Points come from the community ingredient chart; Energizing amounts are the stamina fifths each item restores. Duration: each ingredient adds its listed time; extra copies of pantry items (eggs, dairy, grains, spices) and dragon parts add 30 s; capped at 30:00. Energizing is capped by your stamina. "Balanced" duration counts up to 10:00 only, then prefers the cheaper pot.</p>
+                    <p>Look Up only uses ingredients currently shown (filters and recipe search apply). To keep it fast, the finder only combines the best owned candidates (those carrying the chosen effect plus the top fillers by price, hearts and duration). A pot only counts as a recipe if every item belongs to it. The game's possible buy-price cap isn't modelled.</p>
+                    <p>Data sources (confirm): Zelda Dungeon Wiki "Breath of the Wild Recipes", IGN Wiki "All Recipes and Cookbook", and the all-recipes chart by victorv111.</p>`
+            }
         }
 
-        const DESC = typeof DESCRIPTIONS !== 'undefined' ? DESCRIPTIONS : {};
-        const IMGS = (typeof IMAGES !== 'undefined' ? IMAGES : []).map(f => { const m = f.match(/^(\d+)-(.+)\.png$/i); return m && { f: `img/${f}`, n: +m[1], k: m[2].replace(/[^A-Za-z]/g, '').toLowerCase() } }).filter(Boolean).sort((a, b) => a.n - b.n || (a.f < b.f ? -1 : 1));
-        const AL = { heartydurian: ['heartbonusdurian'], stamellashroom: ['staminellashroom'] }, KE = ['keesewing', 'icekeesewing', 'firekeesewing', 'electrickeesewing'], kw = IMGS.filter(i => i.k == 'keesewing');
-        names.forEach(n => { const k = n.replace(/[^A-Za-z]/g, '').toLowerCase(), i = KE.indexOf(k); let im = IMGS.find(x => x.k == k || (AL[k] || []).includes(x.k)); if (!im && i >= 0) im = kw[i]; M[n].img = im ? im.f : ''; M[n].o = im ? im.n : 1e6 });
-        names.sort((a, b) => M[a].o - M[b].o || M[a].img.localeCompare(M[b].img));
-        const CATC = { 'Fruit': '#f59f00', 'Mushroom': '#9c36b5', 'Vegetable / Herb / Flower': '#2f9e44', 'Meat': '#e03131', 'Fish': '#1971c2', 'Crab / Snail': '#0c8599', 'Other Food / Seasoning': '#a47148', 'Monster Part': '#6c757d', 'Critter': '#74b816', 'Ancient (Guardian) Part': '#3bc9db', 'Dragon Part': '#ffa94d', 'Ore / Gem / Misc': '#adb5bd', 'Fairy': '#f783ac', 'Star Fragment': '#ffd43b' };
-        const EFC = { Energizing: '#0F0', Chilly: '#0FF', Spicy: '#F60', Electro: '#FF0', Hasty: '#90F', Mighty: '#990', Tough: '#660', Sneaky: '#306', Hearty: '#F00', Enduring: '#FC0', Fireproof: '#C2255C' };
-        const effs = ['Hearty', 'Energizing', 'Enduring', 'Hasty', 'Mighty', 'Tough', 'Sneaky', 'Electro', 'Spicy', 'Chilly', 'Fireproof'].filter(e => MATS.some(m => m[3] == e)), EL = {}; MATS.forEach(m => { if (m[3] && m[4] && !EL[m[3]]) EL[m[3]] = m[4] });
-        const TH = { Mighty: [1, 5, 7], Tough: [1, 5, 7], Sneaky: [1, 6, 9], Hasty: [1, 5, 7], Electro: [1, 4, 6], Spicy: [1, 6], Chilly: [1, 6], Fireproof: [1] }, EN = [0, 1, 2, 4, 5, 7, 8, 9, 11, 12, 14, 15];
-        const HI = n => `<img class="hi" src="img/h${n}.webp" alt="" onerror="this.replaceWith('\u2665')">`, heartsHTML = x => { x = Math.round(x * 4) / 4; if (!x) return '0'; const f = Math.floor(x), q = Math.round((x - f) * 4); return HI(4).repeat(f) + (q ? HI(q) : '') }, staHTML = n => n > 0 ? `<img class="si" src="img/s${String(Math.min(15, n)).padStart(2, '0')}.webp" alt="${n}" onerror="this.replaceWith('${n}')">` : '0';
-        const $ = id => document.getElementById(id), fmt = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
-        let S = { hearts: 8, stam: 10, eff: '', pd: 'max', rank: 'price', meals: true, elix: true, groups: [] }, inv = {}, pot = [], found = [];
-        try { const d = JSON.parse(localStorage.getItem('botwState2') || '{}'); inv = d.inv || {}; S = { ...S, ...d.S } } catch (e) { }
-        const save = () => { try { localStorage.setItem('botwState2', JSON.stringify({ inv, S })) } catch (e) { } };
-        const GR = Object.keys(CATC), grp = n => n == 'Fairy' ? 'Fairy' : n == 'Star Fragment' ? 'Star Fragment' : M[n].c, NOSTD = ['Dragon Part', 'Fairy', 'Star Fragment', 'Ore / Gem / Misc', 'Ancient (Guardian) Part']; let rset = null;
-        const vis = n => rset ? rset.has(n) : !S.groups.length || S.groups.includes(grp(n));
-        function renderLeg() { $('leg').innerHTML = `<button data-g="" class="${S.groups.length ? '' : 'on'}">All</button><button data-g="*std" title="Hides dragon parts, fairies, stars, ore and ancient parts">Food, critters, monster parts</button>` + GR.map(c => `<button data-g="${c}" class="${S.groups.includes(c) ? 'on' : ''}" style="border-color:${CATC[c]}"><i style="background:${CATC[c]}"></i>${c}</button>`).join('') }
-        renderLeg(); $('leg2').innerHTML = '<span>Borders:</span>' + effs.map(e => `<span><i class="b" style="border-color:${EFC[e] || '#888'}"></i>${e}</span>`).join('');
-        function recSearch() {
-            const q = $('rq').value.trim().toLowerCase(); rset = null; $('rinfo').innerHTML = ''; if (!q) return; const ms = RECS.filter(r => r[0].toLowerCase().includes(q)); rset = new Set();
-            if (!ms.length) { $('rinfo').innerHTML = '<p class="warn note">No recipe matches.</p>'; return }
-            ms.slice(0, 8).forEach(r => { const x = REC.find(y => y.name == r[0]); if (x) x.all.forEach(n => rset.add(n)) });
-            $('rinfo').innerHTML = ms.slice(0, 6).map(r => `<p class="note"><b>${r[0]}</b>: ${r[2]}${r[3] ? ' <span class="muted">(' + r[3] + ')</span>' : ''}</p>`).join('')
+        /* ---------- Tears of the Kingdom ---------- */
+        // Ported from the game's own cooking logic (CookingMgr), as reverse-engineered by the TotK datamining community.
+        function makeTotK() {
+            const T = TOTK, E = T.effects, M = {}, EL = {}, LT = {}, C = new Map(), rc = new Map();
+            T.mats.forEach(([n, a, g, c, s, hp, e, pt, st, sh, low], i) => { M[n] = { n, a, g, c, s, hp, h: hp / 4, e, p: e ? E[e].l : '', b: e ? E[e].b : '', pt, t: st, sh, low, img: '', o0: i + 1 }; if (e && !EL[E[e].l]) { EL[E[e].l] = E[e].b; LT[E[e].l] = e } });
+            const names = Object.keys(M); assignImages(M, names, 'TotK');
+            const pyRound = x => { const f = Math.floor(x), d = x - f; return d < .5 ? f : d > .5 ? f + 1 : (f % 2 == 0 ? f : f + 1) };
+            const hit = (o, m) => o === m.a || o === m.g, single = m => T.singles.find(r => r.alts.some(o => hit(o, m)));
+            function findRec(d) {
+                let rec = null;
+                if (d.length == 1) rec = single(d[0]);
+                else for (const r of T.recipes) {
+                    if (r.parts.length > d.length) continue; const cp = d.slice(); let ok = true;
+                    for (const part of r.parts) { let f = false; for (const o of part) { const i = cp.findIndex(m => hit(o, m)); if (i >= 0) { cp.splice(i, 1); f = true; break } } if (!f) { ok = false; break } }
+                    if (ok) { rec = r; break }
+                }
+                if (!rec && d.some(m => m.g == 'CookSpice') && new Set(d.map(m => m.g)).size >= 2) rec = single(d[0]);
+                return rec
+            }
+            const FAIL = { r: 'Dubious Food', res: T.failActor, f: 1, bh: 0 }, NOHEAL = [T.failActor, 'Item_Cook_O_02'];
+            function cookT(items) {
+                const key = items.join('|'); if (C.has(key)) return C.get(key);
+                const ms = items.map(n => M[n]), n = ms.length, seen = new Set(), d = []; ms.forEach(m => { if (!seen.has(m.a)) { seen.add(m.a); d.push(m) } });
+                const dk = d.map(m => m.a).join('|'); if (!rc.has(dk)) rc.set(dk, findRec(d)); let rec = rc.get(dk);
+                const raw = ms.reduce((a, m) => a + (m.low ? 1 : m.s), 0), allEff = [...new Set(ms.map(m => m.e).filter(Boolean))].map(k => E[k].l), mix = allEff.length > 1 ? allEff : null; let r;
+                if (!rec) r = { name: 'Dubious Food (no matching recipe)', fixed: true, price: 2, hp: T.subtle, eff: '', mix };
+                else {
+                    let eT = null, lvl = 0, time = 0, flag = false, bonus = 0; ms.forEach(m => { if (m.g == 'CookEnemy') bonus += m.t });
+                    for (const k of T.order) {
+                        const cnt = ms.reduce((a, m) => a + (m.e === k), 0); if (!cnt) continue;
+                        if (flag) { lvl = 0; eT = null; time = 0 } else eT = k;
+                        let ps = 0; time += bonus; ms.forEach(m => { if (m.e === k) ps += m.pt; time += 30 }); time += cnt * E[k].base; lvl += E[k].rate * ps; lvl = Math.min(lvl, E[k].max); flag = true
+                    }
+                    if (rec.e && !eT) rec = FAIL;
+                    if ([T.fairyActor, T.failActor, 'Item_Cook_O_02'].includes(rec.res)) { eT = null; lvl = 0; time = 0 }
+                    if (['LifeMaxUp', 'StaminaRecover', 'ExStaminaMaxUp', 'LifeRepair'].includes(eT)) time = 0;
+                    let hp = ms.reduce((a, m) => a + m.hp, 0) * (NOHEAL.includes(rec.res) ? 1 : T.hpRate);
+                    if (rec.f) { hp = rec.res == T.failActor ? Math.max(T.subtle, hp) : T.failLife; r = { name: rec.r, fixed: true, price: 2, hp, eff: '', mix } }
+                    else {
+                        [...new Map(ms.map(m => [m.a, m])).values()].forEach(m => { if (m.g != 'CookEnemy') { hp += m.sh; time += m.t } });
+                        time = Math.min(time + (rec.bt || 0), 1800); hp = Math.min(120, hp + (rec.bh || 0)); if (hp == 120) hp = 160; if (!eT && hp == 0) hp = 1;
+                        if (eT) { lvl = Math.min(E[eT].max, lvl); if (lvl <= 1 && lvl > 0) lvl = 1; if (eT == 'LifeMaxUp' || eT == 'LifeRepair') { lvl = 4 * pyRound(lvl / 4); if (lvl <= 4 && lvl > 0) lvl = 4 } lvl = Math.floor(lvl) }
+                        let price = Math.max(Math.floor(raw * T.rates[n]), T.minPrice); if (rec.res == T.fairyActor || rec.res == 'Item_Cook_O_02') price = 2;
+                        r = { name: (eT ? E[eT].l + ' ' : '') + rec.r, fixed: rec.res == T.fairyActor, price, hp, eff: eT ? E[eT].l : '', effT: eT, mix: eT ? null : mix, lvl, time, elix: !!rec.e }
+                    }
+                }
+                r.raw = raw; r.n = n; C.set(key, r); return r
+            }
+            function evalPot(items) {
+                const r = cookT(items); if (r.fixed) return null; const t = r.effT && E[r.effT]; let lvl = 0, temp = 0, fifths = 0, dur = 0, gl = 0;
+                if (t) { if (t.timed) { lvl = r.lvl; dur = r.time } else if (r.effT == 'LifeMaxUp') temp = r.lvl / 4; else if (r.effT == 'StaminaRecover') fifths = Math.min(S.stam, r.lvl); else if (r.effT == 'ExStaminaMaxUp') fifths = r.lvl; else gl = r.lvl / 4 }
+                const hearts = r.elix ? 0 : (r.hp >= 160 ? S.hearts : Math.min(S.hearts, r.hp / 4));
+                return { name: r.name, elix: !!r.elix, eff: r.eff, effT: r.effT, mix: r.mix, lvl, temp, fifths, gl, dur, hearts, price: r.price, raw: r.raw, net: r.price - r.raw, n: r.n, pow: t && t.timed ? lvl : temp || gl || fifths }
+            }
+            const effTxt = e => !e.eff ? (e.mix ? `None (${e.mix.join(' + ')} cancel out)` : 'No effect') : E[e.effT].timed ? `${e.eff} Lv ${e.lvl}${e.lvl == E[e.effT].max ? ' (max)' : ''}` : e.effT == 'LifeMaxUp' ? `Hearty +${e.temp} temp hearts` : e.effT == 'LifeRepair' ? `Sunny: restores ${e.gl} gloom hearts` : `${e.eff} ${(e.fifths / 5).toFixed(1)} wheel ${e.eff == 'Energizing' ? staHTML(e.fifths) : ''}`;
+            const TAG = { CookFruit: 'any fruit', CookMushroom: 'any mushroom', CookPlant: 'any leafy vegetable or herb', CookMeat: 'any meat', CookFish: 'any fish, crab or snail', CookEnemy: 'any monster part', CookInsect: 'any critter', CookSpice: 'any seasoning or dragon part', CookGolem: 'any construct part', CookOre: 'any ore', CookForeign: 'any inedible plant' };
+            const byA = {}; names.forEach(n => byA[M[n].a] = n);
+            const tokTxt = o => TAG[o] || byA[o] || o, tokAll = o => names.filter(n => hit(o, M[n]));
+            const seenR = new Set(), recList = [];
+            T.singles.map(r => ({ r: r.r, parts: [r.alts] })).concat(T.recipes).forEach(r => {
+                if (/^(Dubious|Rock-Hard)/.test(r.r)) return; const ps = []; r.parts.forEach(p => { const t = p.map(tokTxt).join(' or '), l = ps[ps.length - 1]; if (l && l.t == t) l.k++; else ps.push({ t, k: 1 }) });
+                const text = ps.map(p => p.k > 1 ? `${p.k} different (${p.t})` : p.t).join(' + '), key = r.r + '|' + text; if (seenR.has(key)) return; seenR.add(key);
+                recList.push({ name: r.r, text, note: r.e ? 'Elixir' : '', all: [].concat(...r.parts.map(p => [].concat(...p.map(tokAll)))) })
+            });
+            const effs = T.order.map(k => E[k].l).filter(l => LT[l]);
+            return {
+                id: 'TotK', title: 'Tears of the Kingdom', M, names, effs, EL, NOSTD: ['Dragon Part', 'Fairy', 'Star Fragment', 'Ore / Gem / Misc', 'Construct Part'], maxCand: 18, lim: 600, recList,
+                timed: l => !!(LT[l] && E[LT[l]].timed), evalPot, effTxt, tipDur: m => m.t ? ' \u00b7 +' + fmt(m.t) + ' duration' : '',
+                cook(items) { const r = cookT(items); return { name: r.name, price: r.price, raw: r.raw, n: r.n, factor: +T.rates[r.n].toFixed(2), fixed: r.fixed, ev: evalPot(items), msg: r.fixed && r.name == 'Fairy Tonic' ? 'Fairy Tonics sell for 2.' : 'This pot makes a failed dish and sells for 2.' } },
+                help: `<p>These rules come from the game's own cooking data, not the wiki approximations used for Breath of the Wild.</p>
+                    <p>Sell price = sum of the ingredients' sell values &times; a factor for the number of items (1: 1.2, 2: 1.3, 3: 1.4, 4: 1.6, 5: 1.8), rounded down, with a minimum of 3. There is no rounding up to 10 in this game. Dragon parts and Star Fragments count as 1 rupee when cooked. Failed dishes, Fairy Tonics and Rock-Hard Food sell for 2.</p>
+                    <p>Recipes are matched the way the game does it: the pot's distinct ingredients are checked against the recipe list in order and the first match wins. Four copies of one fruit are still Simmered Fruit, because "Copious" dishes need four different kinds.</p>
+                    <p>Effects: each ingredient with an effect adds its hidden potency. Level = total potency &times; a per-effect rate, rounded down (minimum 1, capped per effect). One effect per pot: ingredients with two or more different effects cancel and the dish has no effect, and an elixir with clashing effects fails. Hearty and Sunny levels are quarter hearts. Hearts restored = twice the ingredients' raw hearts plus the recipe's bonus, capped at your hearts; 30 or more hearts' worth is a full heal.</p>
+                    <p>Duration = 30 s per item + a base time per effect ingredient (Hasty 0:30, Mighty/Tough 0:20, Sneaky/Bright/Sticky/Rapid 1:30, Chilly/Spicy/Electro/Fireproof/Warding 2:00) + the bonus time on seasonings, dragon parts and monster parts, capped at 30:00. "Balanced" duration counts up to 10:00 only, then prefers the cheaper pot.</p>
+                    <p>Not modelled: Critical cooks (a random extra: more hearts, +1 level or +5:00; guaranteed by dragon parts, Star Fragments and Golden Apples) and Monster Extract (which randomises hearts, level and duration). Results show the base outcome. The finder only combines up to 18 of the best owned candidates, to stay quick.</p>
+                    <p>Data: game values from the community CookingMgr datamine (Echocolat/TOTK-Cooking-Calculator, with KingFoo's original simulator), recipe rules cross-checked against Zelda Dungeon's "Tears of the Kingdom Food" and "Recipes" pages (the Fextralife and Game8 recipe pages are further references). Ingredient images are placeholders (TotK###-Name.png in img/) until you add them.</p>`
+            }
         }
-        const tip = m => (DESC[m.n] || `${m.n}: ${m.c}${m.p ? ' \u00b7 ' + m.p + ' (' + m.b + ')' : ''}${m.pt ? ' \u00b7 ' + m.pt + ' effect pts' : ''}${m.p && TH[m.p] && m.t ? ' \u00b7 +' + fmt(m.t) + ' duration' : ''}${m.h ? ' \u00b7 ' + m.h + ' hearts raw' : ''} \u00b7 sells ${m.s}`).replace(/"/g, '&quot;');
+
+        /* ---------- game registry and state ---------- */
+        const GAMES = { BotW: makeBotW }; if (typeof TOTK !== 'undefined') GAMES.TotK = makeTotK;
+        const built = {}, getG = id => built[id] || (built[id] = GAMES[id]());
+        try {
+            const raw = JSON.parse(localStorage.getItem('botwState3') || 'null'), old = JSON.parse(localStorage.getItem('botwState2') || '{}'), d = raw || { invs: { BotW: old.inv || {} }, S: old.S };
+            Object.assign(invs, d.invs || {}); S = { ...S, ...d.S }
+        } catch (e) { }
+        if (!GAMES[S.game]) S.game = 'BotW';
+        const save = () => { try { localStorage.setItem('botwState3', JSON.stringify({ invs, S })) } catch (e) { } };
+        const vis = n => rset ? rset.has(n) : !S.groups.length || S.groups.includes(G.M[n].c);
+        const GRP = () => Object.keys(CATC).filter(c => G.names.some(n => G.M[n].c == c));
+        function setGame(id, keep) {
+            G = getG(id); S.game = id; inv = invs[id] = invs[id] || {};
+            if (!keep) { S.groups = []; pot = []; found = []; rset = null; $('rq').value = ''; $('rinfo').innerHTML = '' }
+            if (!G.effs.includes(S.eff)) S.eff = '';
+            S.groups = S.groups.filter(g => GRP().includes(g));
+            document.title = `LoZ Cookery \u2013 ${G.title}`; $('ttl').textContent = `Legend of Zelda: ${G.title} Cooking Pot`; $('help').innerHTML = G.help;
+            $('best').innerHTML = '<p class="muted">Enter quantities on the ingredient tiles, then click Look Up.</p>';
+            $('gm').innerHTML = Object.keys(GAMES).map(k => `<button data-game="${k}" class="${k == id ? 'on' : ''}">${getG(k).title}</button>`).join('');
+            $('leg2').innerHTML = '<span>Borders:</span>' + G.effs.map(e => `<span><i class="b" style="border-color:${EFC[e] || '#888'}"></i>${e}</span>`).join('');
+            renderLeg(); setUI(); list(); showPot(); save()
+        }
+        function renderLeg() { $('leg').innerHTML = `<button data-g="" class="${S.groups.length ? '' : 'on'}">All</button><button data-g="*std" title="Hides dragon parts, fairies, stars, ore and ancient or construct parts">Food, critters, monster parts</button>` + GRP().map(c => `<button data-g="${c}" class="${S.groups.includes(c) ? 'on' : ''}" style="border-color:${CATC[c]}"><i style="background:${CATC[c]}"></i>${c}</button>`).join('') }
+        function recSearch() {
+            const q = $('rq').value.trim().toLowerCase(); rset = null; $('rinfo').innerHTML = ''; if (!q) return; const ms = G.recList.filter(r => r.name.toLowerCase().includes(q)); rset = new Set();
+            if (!ms.length) { $('rinfo').innerHTML = '<p class="warn note">No recipe matches.</p>'; return }
+            ms.slice(0, 8).forEach(r => r.all.forEach(n => rset.add(n)));
+            $('rinfo').innerHTML = ms.slice(0, 6).map(r => `<p class="note"><b>${r.name}</b>: ${r.text}${r.note ? ' <span class="muted">(' + r.note + ')</span>' : ''}</p>`).join('')
+        }
+        const tip = m => (DESC[m.n] || `${m.n}: ${m.c}${m.p ? ' \u00b7 ' + m.p + ' (' + m.b + ')' : ''}${m.pt ? ' \u00b7 ' + m.pt + ' effect pts' : ''}${G.tipDur(m)}${m.h ? ' \u00b7 ' + m.h + ' hearts raw' : ''} \u00b7 sells ${m.s}`).replace(/"/g, '&quot;');
         function list() {
-            const o = $('own').checked;
+            const o = $('own').checked, { M, names } = G;
             $('list').innerHTML = names.map((n, i) => ({ n, i, m: M[n] })).filter(x => vis(x.n) && (!o || inv[x.n] > 0)).map(x => {
                 const m = x.m;
-                return `<div class="tile" style="background:${CATC[grp(x.n)] || '#888'}33;border-color:${m.p ? (EFC[m.p] || '#888') : 'var(--line)'}" title="${tip(m)}"><button class="pick" data-a="${x.i}"><span class="sq"><span class="ph">${x.n.split(/[^A-Za-z]+/).filter(Boolean).map(w => w[0]).join('').slice(0, 3)}</span>${m.img ? `<img src="${m.img}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span><b>${x.n}</b></button><label class="own">Sells ${m.s}<input type="number" min="0" max="999" value="${inv[x.n] || ''}" data-q="${x.i}" aria-label="Owned ${x.n}"></label></div>`
+                return `<div class="tile" style="background:${CATC[m.c] || '#888'}33;border-color:${m.p ? (EFC[m.p] || '#888') : 'var(--line)'}" title="${tip(m)}"><button class="pick" data-a="${x.i}"><span class="sq"><span class="ph">${x.n.split(/[^A-Za-z]+/).filter(Boolean).map(w => w[0]).join('').slice(0, 3)}</span>${m.img ? `<img src="${m.img}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span><b>${x.n}</b></button><label class="own">Sells ${m.s}<input type="number" min="0" max="999" value="${inv[x.n] || ''}" data-q="${x.i}" aria-label="Owned ${x.n}"></label></div>`
             }).join('') || '<p class="muted">No ingredients match.</p>'
         }
         function setUI() {
             $('hn').value = S.hearts; $('hh').innerHTML = heartsHTML(S.hearts); $('sn').value = S.stam; $('ss').innerHTML = staHTML(S.stam);
             $('meals').checked = S.meals; $('elix').checked = S.elix; $('rank').value = S.rank;
-            document.querySelectorAll('[name=pd]').forEach(r => r.checked = r.value == S.pd); $('pdbox').style.display = TH[S.eff] ? 'flex' : 'none';
-            $('effs').innerHTML = [''].concat(effs).map(e => `<button data-e="${e}" class="${S.eff == e ? 'on' : ''}" title="${EL[e] || ''}" style="border-color:${e ? (EFC[e] || '#888') : 'var(--line)'}">${e || 'Any'}</button>`).join('')
+            document.querySelectorAll('[name=pd]').forEach(r => r.checked = r.value == S.pd); $('pdbox').style.display = G.timed(S.eff) ? 'flex' : 'none';
+            $('effs').innerHTML = [''].concat(G.effs).map(e => `<button data-e="${e}" class="${S.eff == e ? 'on' : ''}" title="${G.EL[e] || ''}" style="border-color:${e ? (EFC[e] || '#888') : 'var(--line)'}">${e || 'Any'}</button>`).join('')
         }
-        function evalPot(items, full) {
-            const u = items.filter(x => !BOOST(x)), cr = u.filter(x => M[x].c == 'Critter'), pt = u.filter(x => /Monster Part|Ancient/.test(M[x].c)), n = items.length, raw = items.reduce((a, x) => a + val(x), 0); let elix = false, name = '';
-            if (full) { const d = dish(items); if (d.fixed) return null; elix = d.elix; name = d.name }
-            else { if (u.some(x => x == 'Fairy' || M[x].c == 'Ore / Gem / Misc')) return null; if (cr.length || pt.length) { if (!(cr.length && pt.length && cr.length + pt.length == u.length)) return null; elix = true } else if (!u.length) return null }
-            const ps = [...new Set(u.map(x => M[x].p).filter(Boolean))], eff = ps.length == 1 ? ps[0] : ''; let pts = 0; if (eff) u.forEach(x => { if (M[x].p == eff) pts += M[x].pt || 1 });
-            let lvl = 0, temp = 0, fifths = 0, dur = 0;
-            if (TH[eff]) { lvl = TH[eff].filter(t => pts >= t).length; const c = {}; items.forEach(x => c[x] = (c[x] || 0) + 1); for (const k in c) { const t = M[k].t || 30; dur += t + (c[k] - 1) * (/Other Food|Dragon/.test(M[k].c) || k == 'Star Fragment' ? 30 : t) } dur = Math.min(1800, dur) }
-            else if (eff == 'Hearty') temp = Math.min(30, Math.floor(pts)); else if (eff == 'Energizing') fifths = Math.min(S.stam, 15, Math.floor(pts)); else if (eff == 'Enduring') fifths = Math.min(10, Math.floor(pts));
-            const sumH = u.reduce((a, x) => a + (M[x].h || 0), 0), hearts = elix ? 0 : (eff == 'Hearty' ? S.hearts : Math.min(S.hearts, 2 * sumH)), p = price(n, raw);
-            return { name, elix, eff, lvl, temp, fifths, dur, hearts, price: p, raw, net: p - raw, n, pow: TH[eff] ? lvl : eff == 'Hearty' ? temp : fifths }
-        }
-        const effTxt = e => !e.eff ? 'No effect' : TH[e.eff] ? `${e.eff} ${e.lvl}${e.lvl == TH[e.eff].length ? ' (max)' : ''}` : e.eff == 'Hearty' ? `Hearty +${e.temp} temp hearts` : `${e.eff} ${(e.fifths / 5).toFixed(1)} wheel ${e.eff == 'Energizing' ? staHTML(e.fifths) : ''}`;
         const dc = e => S.pd == 'bal' ? Math.min(e.dur, 600) : e.dur, KEYS = { price: e => [e.price, e.net], net: e => [e.net, e.price], hearts: e => [e.hearts + e.temp, e.price], effect: e => [e.pow, dc(e), -e.raw], dur: e => [e.dur, e.pow, -e.raw] };
         const cmpK = (a, b) => { for (let i = 0; i < a.length; i++)if (a[i] != b[i]) return b[i] - a[i]; return 0 };
         function showPot() {
             $('pot').innerHTML = pot.map((n, i) => `<button class="chip" data-r="${i}" title="Remove">${n} \u00d7</button>`).join('') || '<p class="muted">Click a tile to add up to five ingredients.</p>';
             if (!pot.length) { $('out').innerHTML = ''; return }
-            const d = dish(pot), e = evalPot(pot, true);
-            $('out').innerHTML = `<div class="big">${d.name}</div><div class="price">${d.price}</div><dl><dt>Items</dt><dd>${d.n} (factor ${F[d.n]})</dd><dt>Ingredients' raw value</dt><dd>${d.S}</dd><dt>Net gain</dt><dd class="${d.price >= d.S ? 'pos' : 'warn'}">${d.price - d.S > 0 ? '+' : ''}${d.price - d.S}</dd>${e ? `${e.elix ? '' : `<dt>Hearts</dt><dd>${heartsHTML(e.hearts)}${e.temp ? ' + ' + e.temp + ' temp' : ''}</dd>`}<dt>Effect</dt><dd>${effTxt(e)}</dd>${TH[e.eff] ? `<dt>Duration</dt><dd>${fmt(e.dur)}</dd>` : ''}` : ''}</dl>${d.fixed ? '<p class="warn">This pot fails as a recipe and sells for 2.</p>' : ''}<br>`
+            const d = G.cook(pot), e = d.ev;
+            $('out').innerHTML = `<div class="big">${d.name}</div><div class="price">${d.price}</div><dl><dt>Items</dt><dd>${d.n} (factor ${d.factor})</dd><dt>Ingredients' raw value</dt><dd>${d.raw}</dd><dt>Net gain</dt><dd class="${d.price >= d.raw ? 'pos' : 'warn'}">${d.price - d.raw > 0 ? '+' : ''}${d.price - d.raw}</dd>${e ? `${e.elix ? '' : `<dt>Hearts</dt><dd>${heartsHTML(e.hearts)}${e.temp ? ' + ' + e.temp + ' temp' : ''}</dd>`}<dt>Effect</dt><dd>${G.effTxt(e)}</dd>${G.timed(e.eff) ? `<dt>Duration</dt><dd>${fmt(e.dur)}</dd>` : ''}` : ''}</dl>${d.fixed ? `<p class="warn">${d.msg}</p>` : ''}<br>`
         }
         function best(K) {
-            const eff = S.eff, have = names.filter(n => inv[n] > 0 && vis(n)); if (!have.length) return { out: [], cnt: 0 };
+            const { M, names, effs } = G, eff = S.eff, have = names.filter(n => inv[n] > 0 && vis(n)); if (!have.length) return { out: [], cnt: 0 };
             const top = (a, f, k) => a.slice().sort((x, y) => f(y) - f(x)).slice(0, k), fx = have.filter(n => M[n].p), fl = have.filter(n => !M[n].p), cand = new Set();
             (eff ? fx.filter(n => M[n].p == eff) : [].concat(...effs.map(e => top(fx.filter(n => M[n].p == e), n => M[n].pt || 1, 2)))).forEach(n => cand.add(n));
             [n => M[n].s, n => M[n].h || 0, n => M[n].t || 30].forEach(f => top(fl, f, eff ? 6 : 4).forEach(n => cand.add(n)));
-            const cs = [...cand].slice(0, 30), lim = 1500, tl = [], cur = []; let cnt = 0;
-            const add = () => { cnt++; const e = evalPot(cur, false); if (!e || (e.elix ? !S.elix : !S.meals) || (eff && e.eff != eff)) return; const k = KEYS[S.rank](e); if (tl.length >= lim && cmpK(k, tl[tl.length - 1].k) >= 0) return; const c = { k, items: cur.slice() }; let i = tl.length; tl.push(c); while (i > 0 && cmpK(tl[i - 1].k, k) > 0) { tl[i] = tl[i - 1]; i-- } tl[i] = c; if (tl.length > lim) tl.pop() };
+            const cs = [...cand].slice(0, G.maxCand), lim = G.lim, tl = [], cur = []; let cnt = 0;
+            const add = () => { cnt++; const e = G.evalPot(cur, false); if (!e || (e.elix ? !S.elix : !S.meals) || (eff && e.eff != eff)) return; const k = KEYS[S.rank](e); if (tl.length >= lim && cmpK(k, tl[tl.length - 1].k) >= 0) return; const c = { k, items: cur.slice() }; let i = tl.length; tl.push(c); while (i > 0 && cmpK(tl[i - 1].k, k) > 0) { tl[i] = tl[i - 1]; i-- } tl[i] = c; if (tl.length > lim) tl.pop() };
             const rec = i => { if (cur.length) add(); if (cur.length >= 5) return; for (let j = i; j < cs.length; j++) { const q = Math.min(inv[cs[j]], 5 - cur.length); for (let c = 1; c <= q; c++) { cur.push(cs[j]); rec(j + 1) } for (let c = 0; c < q; c++)cur.pop() } };
-            rec(0); const out = []; for (const c of tl) { const e = evalPot(c.items, true); if (!e || (e.elix ? !S.elix : !S.meals) || (eff && e.eff != eff)) continue; out.push({ items: c.items, e }); if (out.length >= K) break } return { out, cnt }
+            rec(0); const out = []; for (const c of tl) { const e = G.evalPot(c.items, true); if (!e || (e.elix ? !S.elix : !S.meals) || (eff && e.eff != eff)) continue; out.push({ items: c.items, e }); if (out.length >= K) break } return { out, cnt }
         }
         function showBest(r, ms) {
             found = r.out; if (!found.length) { $('best').innerHTML = '<p class="warn">No valid recipe matches. Check your quantities, effect and meal/elixir choices.</p>'; return }
             $('best').innerHTML = `<p class="muted note">Checked ${r.cnt.toLocaleString()} combinations in ${(ms / 1000).toFixed(2)} s.</p>` + found.map((x, i) => {
                 const e = x.e, cnt = {}; x.items.forEach(y => cnt[y] = (cnt[y] || 0) + 1);
-                return `<div class="res"><b>${e.name}</b> <span class="price" style="font-size:22px">${e.price}</span><div class="muted">${Object.entries(cnt).map(([k, v]) => (v > 1 ? v + '\u00d7 ' : '') + k).join(', ')}</div><div>${e.elix ? '' : `Hearts ${heartsHTML(e.hearts)}${e.temp ? ' +' + e.temp + ' temp' : ''} \u00b7 `}${effTxt(e)}${TH[e.eff] ? ' \u00b7 ' + fmt(e.dur) : ''}</div><div class="muted">${x.items.length} items \u00b7 raw ${e.raw} \u00b7 net <span class="pos">${e.net > 0 ? '+' : ''}${e.net}</span> <button data-l="${i}">Load into pot</button></div></div>`
+                return `<div class="res"><b>${e.name}</b> <span class="price" style="font-size:22px">${e.price}</span><div class="muted">${Object.entries(cnt).map(([k, v]) => (v > 1 ? v + '\u00d7 ' : '') + k).join(', ')}</div><div>${e.elix ? '' : `Hearts ${heartsHTML(e.hearts)}${e.temp ? ' +' + e.temp + ' temp' : ''} \u00b7 `}${G.effTxt(e)}${G.timed(e.eff) ? ' \u00b7 ' + fmt(e.dur) : ''}</div><div class="muted">${x.items.length} items \u00b7 raw ${e.raw} \u00b7 net <span class="pos">${e.net > 0 ? '+' : ''}${e.net}</span> <button data-l="${i}">Load into pot</button></div></div>`
             }).join('')
         }
         document.addEventListener('click', e => {
             const t = e.target.closest('button'); if (!t) return; const d = t.dataset;
-            if (d.g !== undefined) { const g = d.g; S.groups = g == '' ? [] : g == '*std' ? GR.filter(x => !NOSTD.includes(x)) : S.groups.includes(g) ? S.groups.filter(x => x != g) : S.groups.concat(g); save(); renderLeg(); list() }
-            if (d.a !== undefined && pot.length < 5) { pot.push(names[+d.a]); showPot() }
+            if (d.game) { if (d.game != S.game) setGame(d.game); return }
+            if (d.g !== undefined) { const g = d.g; S.groups = g == '' ? [] : g == '*std' ? GRP().filter(x => !G.NOSTD.includes(x)) : S.groups.includes(g) ? S.groups.filter(x => x != g) : S.groups.concat(g); save(); renderLeg(); list() }
+            if (d.a !== undefined && pot.length < 5) { pot.push(G.names[+d.a]); showPot() }
             if (d.r !== undefined) { pot.splice(+d.r, 1); showPot() }
             if (d.l !== undefined) { pot = found[+d.l].items.slice(); showPot() }
             if (d.h) { S.hearts = Math.min(30, Math.max(3, S.hearts + +d.h)); setUI(); save() }
@@ -628,14 +752,14 @@
             if (t.id == 'clr') { pot = []; showPot() }
             if (t.id == 'cookit' && pot.length) { pot.forEach(n => { if (inv[n] > 0) { inv[n]--; if (!inv[n]) delete inv[n] } }); pot = []; save(); list(); showPot() }
             if (t.id == 'find') { $('best').innerHTML = '<p class="muted">Cooking\u2026</p>'; setTimeout(() => { const t0 = performance.now(), r = best(6); showBest(r, performance.now() - t0) }, 30) }
-            if (t.id == 'apply') { const v = Math.max(0, parseInt($('all').value) || 0); names.forEach(n => { if (v) inv[n] = v; else delete inv[n] }); save(); list() }
-            if (t.id == 'sv') { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ v: 2, inv, S }, null, 1)], { type: 'application/json' })); a.download = 'botw-ingredients.json'; a.click() }
+            if (t.id == 'apply') { const v = Math.max(0, parseInt($('all').value) || 0); G.names.forEach(n => { if (v) inv[n] = v; else delete inv[n] }); save(); list() }
+            if (t.id == 'sv') { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ v: 3, game: G.id, inv, S }, null, 1)], { type: 'application/json' })); a.download = G.id.toLowerCase() + '-ingredients.json'; a.click() }
             if (t.id == 'ld') $('fi').click()
         });
-        $('fi').addEventListener('change', e => { const f = e.target.files[0]; if (!f) return; f.text().then(x => { try { const d = JSON.parse(x); inv = d.inv || {}; S = { ...S, ...d.S }; save(); list(); setUI(); showPot() } catch (err) { alert('That file is not a saved ingredient list.') } }); e.target.value = '' });
+        $('fi').addEventListener('change', e => { const f = e.target.files[0]; if (!f) return; f.text().then(x => { try { const d = JSON.parse(x), id = GAMES[d.game] ? d.game : 'BotW', { game, groups, eff, ...rest } = d.S || {}; invs[id] = d.inv || {}; S = { ...S, ...rest }; setGame(id, false) } catch (err) { alert('That file is not a saved ingredient list.') } }); e.target.value = '' });
         document.addEventListener('input', e => {
             const t = e.target;
-            if (t.dataset.q !== undefined) { const n = names[+t.dataset.q], v = Math.max(0, parseInt(t.value) || 0); if (v) inv[n] = v; else delete inv[n]; save() }
+            if (t.dataset.q !== undefined) { const n = G.names[+t.dataset.q], v = Math.max(0, parseInt(t.value) || 0); if (v) inv[n] = v; else delete inv[n]; save() }
             if (['meals', 'elix'].includes(t.id)) { S[t.id] = t.checked; save() }
             if (t.id == 'rank') { S.rank = t.value; save() }
             if (t.name == 'pd') { S.pd = t.value; save() }
@@ -643,7 +767,7 @@
         });
         $('hn').addEventListener('change', e => { S.hearts = Math.min(30, Math.max(3, parseInt(e.target.value) || 8)); setUI(); save(); showPot() });
         $('sn').addEventListener('change', e => { S.stam = Math.min(15, Math.max(5, parseInt(e.target.value) || 10)); setUI(); save(); showPot() });
-        list(); setUI(); showPot();
+        setGame(S.game, true);
     </script>
 </body>
 
