@@ -26,6 +26,7 @@ Inspired by [botwcooking.com](https://botwcooking.com), with additional data com
 - **Filters and ownership view.** Filter tiles by category, show owned items only, or set a quantity for every item at once.
 - **Save and load.** Your inventory and settings persist in the browser automatically, and can be exported to or imported from a JSON file (`botw-ingredients.json` or `totk-ingredients.json`). A saved file remembers which game it belongs to.
 - **Tooltips.** Hovering a tile shows category, effect, effect points, duration, raw hearts and sell price, or official item text if you supply it.
+- **Armor upgrades page (`armor.html`).** A second page, linked from the header of each page, lists every upgradable armor piece for the selected game with the ingredients needed for each of the four stars. It reads the quantities you saved on the cooking pot page, highlights pieces you can upgrade right now, fades pieces that cannot be upgraded, and totals the ingredients (and, for *TotK*, rupees) still needed for the pieces you own. Mark which pieces you own and their current star level; those choices are saved separately in the browser.
 - **Responsive, light/dark aware.** Follows your system color scheme and collapses to a single column on small screens.
 
 ## Getting started
@@ -52,9 +53,12 @@ It can also be hosted as-is on GitHub Pages or any static host.
 | `index.html` | The whole app: markup, styles, and logic. It contains a separate engine for each game (recipe matching, pricing, effects, duration) and the shared pot finder and interface. |
 | `data-botw.js` | *Breath of the Wild* ingredient (`MATS`) and recipe (`RECS`) data. |
 | `data-totk.js` | *Tears of the Kingdom* data (`TOTK`): materials, effect rates, price factors and recipes. |
+| `armor.html` | The armor upgrades page: markup, styles and logic. Reads your saved ingredient quantities from the browser. |
+| `data-armor.js` | Armor upgrade data (`ARMOR`) for both games: sets, pieces, and the ingredients for each star. |
+| `armor-images.js` | Optional list of armor image filenames in `img/armor/`, empty by default. |
 | `images.js` | List of ingredient image filenames, used to match images to ingredients. |
 | `descriptions.js` | Optional official item text for tooltips (empty by default). |
-| `img/` | Ingredient tile images, named `BotW###-ItemName.png` and `TotK###-ItemName.png` (see below), plus the optional heart and stamina icons. |
+| `img/` | Ingredient tile images, named `BotW###-ItemName.png` and `TotK###-ItemName.png` (see below), plus the optional heart and stamina icons. Optional armor images go in `img/armor/`. |
 | `rename-images.sh` | Helper that renames images to the `BotW###-` format. |
 | `LICENSE` | CC0 1.0 Universal. |
 
@@ -86,6 +90,21 @@ TOTK.recipes   // all other recipes, in the order the game checks them
 ```
 
 Recipe parts use the game's internal actor names or cook tags (for example `CookFruit`), with `or` alternatives, so they are matched the way the game matches them. Most of this file was generated from datamined tables rather than typed by hand, so edit it with care.
+
+**`data-armor.js`** defines one object, `ARMOR`, with a `BotW` and a `TotK` entry:
+
+```js
+ARMOR.BotW = { rupees: null, sets: [
+  { name: "Hylian Set",
+    u: [ [["Bokoblin Horn", 5]], [["Bokoblin Fang", 5], ["Bokoblin Horn", 8]], ... ],   // star 1 to 4: [ingredient, quantity]
+    pieces: [ { n: "Hylian Hood", t: "hat" }, { n: "Hylian Tunic", t: "shirt" }, ... ] } ] }
+```
+
+`u` is on the set when every piece shares the same ingredients, otherwise on each piece (the Wild set, for example, needs different dragon parts per piece). `u: null` means the piece cannot be upgraded. `rupees` is the per-star fee for the game (`[10, 50, 200, 500]` for *TotK*, `null` for *BotW*), and a set or piece can override it with `r`. `a` marks Amiibo items and `d` DLC items. Ingredient names must match the names in `data-botw.js` and `data-totk.js`, because that is how the armor page finds your saved quantities.
+
+### Armor images
+
+Optional. Put images in `img/armor/` named `<Game>-<Name>.png`, for example `BotW-HylianHood.png`, `BotW-HylianSet.png` or `TotK-ZonaiteHelm.png`. A piece image is used when the name matches the piece, otherwise a set image matching the set name is used, otherwise the tile shows initials. Then regenerate `armor-images.js` (the command is in that file).
 
 ### Tooltip descriptions
 
@@ -137,6 +156,13 @@ These rules follow the game's own cooking data as published by the community, ra
 
 - **Finder:** to stay fast, **Look Up** only combines the best owned candidates (those carrying the chosen effect plus top fillers by price, hearts, and duration). The cap is 30 candidates for BotW and 18 for TotK. It only considers ingredients currently shown, so filters and recipe search apply.
 
+### Armor upgrades
+
+- **Ready** means you own the piece and your saved quantities cover the next star's ingredients. Each piece is checked on its own, so two pieces needing the same ingredient can both read as ready when you only have enough for one.
+- *BotW* upgrades cost materials only. *TotK* upgrades also cost rupees (10, 50, 200, 500 for stars 1 to 4; Ancient Hero's Aspect costs 30, 150, 600, 1500). Rupees are shown but not checked, as the app does not track them.
+- The star level you can reach depends on how many Great Fairies you have awakened. The page does not track that.
+- Pieces with no upgrade list (Phantom set, and in *BotW* the Dark, Gerudo, Tingle, Royal Guard and other fixed-stat sets) are shown faded.
+
 ### Known limitations
 
 - The game's possible buy-price cap isn't modeled.
@@ -148,6 +174,8 @@ These rules follow the game's own cooking data as published by the community, ra
 
 - [x] *Tears of the Kingdom* support, with a game selector
 - [x] Separate data per game (`data-botw.js` and `data-totk.js`) so the shared interface can load either dataset
+- [x] Armor upgrades page for both games
+- [ ] Armor set images
 - [ ] Fill in official item descriptions
 - [ ] Optional critical-cook and Monster Extract ranges for *TotK*
 
@@ -161,10 +189,41 @@ These rules follow the game's own cooking data as published by the community, ra
   - [https://game8.co/games/Zelda-Breath-of-the-Wild/archives/292496](https://game8.co/games/Zelda-Breath-of-the-Wild/archives/292496)
   - [https://www.reddit.com/r/Breath_of_the_Wild/comments/kq8ccs/all_botw_recipes_in_one_image/](https://www.reddit.com/r/Breath_of_the_Wild/comments/kq8ccs/all_botw_recipes_in_one_image/) (the all-recipes chart by victorv111)
   - [https://old.reddit.com/r/Breath_of_the_Wild/comments/62xurt/full_effects_of_all_cooking_ingredients/](https://old.reddit.com/r/Breath_of_the_Wild/comments/62xurt/full_effects_of_all_cooking_ingredients/) (likely source of the effect points)
+- Armor upgrade data:
+  - *Breath of the Wild* requirements come from [TheJaredWilcurt/botw-armor-upgrade-tracker](https://github.com/TheJaredWilcurt/botw-armor-upgrade-tracker) (MIT License, see below). Zelda Central's [armor sets and upgrades page](https://zeldacentral.com/games/breath-of-the-wild/armor-sets-upgrades/) was used as a reference and differs from the tracker in places.
+  - *Tears of the Kingdom* requirements come from Prima Games' [All Armor Upgrade Materials Listed](https://primagames.com/tips/all-armor-upgrade-materials-listed-for-zelda-tears-of-the-kingdom), with the fee schedule checked against Fextralife's [Upgrades page](https://zeldatearsofthekingdom.wiki.fextralife.com/Upgrades) and the Zelda Dungeon [armor page](https://www.zeldadungeon.net/wiki/Tears_of_the_Kingdom_Armor) as a further reference. Not verified in game.
 - *Tears of the Kingdom* data:
   - Material values, effect rates and cooking logic come from the datamined tables in [Echocolat/TOTK-Cooking-Calculator](https://github.com/Echocolat/TOTK-Cooking-Calculator). That project credits original code by KingFoo ([Totk-Cooking-Simulator](https://github.com/KingFooZQ/Totk-Cooking-Simulator)) and CookingMgr code retrieved by dt12345.
   - Recipe rules were cross-checked against [Zelda Dungeon's Recipes page](https://www.zeldadungeon.net/wiki/Tears_of_the_Kingdom_Recipes) and [Food page](https://www.zeldadungeon.net/wiki/Tears_of_the_Kingdom_Food).
   - Further references: the [Fextralife recipe book](https://zeldatearsofthekingdom.wiki.fextralife.com/Recipe_Book) and [Game8's recipe list](https://game8.co/games/Zelda-Tears-of-the-Kingdom/archives/411134).
+
+## Third-party notice
+
+The *Breath of the Wild* data in `data-armor.js` is derived from botw-armor-upgrade-tracker, which is used under the MIT License:
+
+```
+MIT License
+
+Copyright (c) 2022 The Jared Wilcurt
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
 ## License
 

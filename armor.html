@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>LoZ Cookery &ndash; Armor Upgrades</title>
+    <style>
+        :root {
+            --bg: #e9eef0;
+            --panel: #f8fafb;
+            --ink: #17282e;
+            --muted: #587078;
+            --line: #c6d3d8;
+            --accent: #0e7c8c;
+            --gold: #b8741a;
+            --warn: #a33b2c;
+            --good: #2f9e44;
+            box-sizing: border-box
+        }
+
+        @media(prefers-color-scheme:dark) {
+            :root {
+                --bg: #0f1c21;
+                --panel: #162830;
+                --ink: #e3eef0;
+                --muted: #8fa9b1;
+                --line: #29414a;
+                --accent: #4fd1d9;
+                --gold: #e2a43f;
+                --warn: #e58a78;
+                --good: #51cf66
+            }
+        }
+
+        * {
+            box-sizing: inherit
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--ink);
+            font: 15px/1.45 system-ui, sans-serif
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-family: 'Palatino Linotype', Palatino, Georgia, serif;
+            font-weight: 600
+        }
+
+        header {
+            padding: 20px 24px 4px
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 28px
+        }
+
+        h2 {
+            margin: 0 0 8px;
+            font-size: 19px
+        }
+
+        header p {
+            margin: 4px 0 0;
+            color: var(--muted);
+            max-width: 70ch
+        }
+
+        .navlink {
+            display: inline-block;
+            margin-bottom: 6px;
+            color: var(--accent);
+            font-weight: 600;
+            text-decoration: none
+        }
+
+        .navlink:hover {
+            text-decoration: underline
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) clamp(240px, 30vw, 400px);
+            gap: 20px;
+            padding: 16px 24px 40px;
+            align-items: start
+        }
+
+        @media(max-width:800px) {
+            main {
+                grid-template-columns: 1fr
+            }
+        }
+
+        section,
+        aside>div {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 14px
+        }
+
+        aside {
+            position: sticky;
+            top: 12px;
+            display: grid;
+            gap: 14px;
+            max-height: calc(100vh - 24px);
+            overflow: auto
+        }
+
+        @media(max-width:800px) {
+            aside {
+                position: static;
+                max-height: none
+            }
+        }
+
+        input,
+        select,
+        button {
+            font: inherit;
+            color: inherit;
+            background: var(--bg);
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            padding: 5px 8px
+        }
+
+        button {
+            cursor: pointer
+        }
+
+        button:hover:not(:disabled) {
+            border-color: var(--accent)
+        }
+
+        button:disabled {
+            cursor: default;
+            opacity: .45
+        }
+
+        .gm {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+            flex-wrap: wrap
+        }
+
+        .gm button {
+            border-width: 2px;
+            padding: 5px 14px;
+            font-weight: 600
+        }
+
+        .gm button.on,
+        .chips button.on {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent)
+        }
+
+        .bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            align-items: center
+        }
+
+        .chips {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap
+        }
+
+        .bar label {
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+            font-size: 13px
+        }
+
+        .muted {
+            color: var(--muted)
+        }
+
+        .note {
+            font-size: 13px;
+            margin: 6px 0
+        }
+
+        .banner {
+            border: 1px dashed var(--gold);
+            border-radius: 4px;
+            padding: 8px 10px;
+            margin-bottom: 10px;
+            font-size: 13px
+        }
+
+        details.set {
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            margin-bottom: 10px;
+            background: var(--bg)
+        }
+
+        details.set>summary {
+            cursor: pointer;
+            padding: 8px 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            font-weight: 600
+        }
+
+        details.set>summary .cnt {
+            margin-left: auto;
+            font-weight: 400;
+            font-size: 13px;
+            color: var(--muted)
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 10px;
+            padding: 0 10px 10px
+        }
+
+        .pc {
+            background: var(--panel);
+            border: 2px solid var(--line);
+            border-radius: 6px;
+            padding: 9px;
+            display: grid;
+            gap: 6px;
+            align-content: start
+        }
+
+        .pc.ready {
+            border-color: var(--good);
+            box-shadow: 0 0 0 1px var(--good) inset
+        }
+
+        .pc.short {
+            border-color: var(--gold)
+        }
+
+        .pc.max {
+            border-color: var(--accent)
+        }
+
+        .pc.none {
+            opacity: .45;
+            filter: grayscale(1)
+        }
+
+        .pc.unowned:not(.none) {
+            opacity: .72
+        }
+
+        .ph1 {
+            display: flex;
+            gap: 8px;
+            align-items: center
+        }
+
+        .ph1 b {
+            display: block;
+            line-height: 1.2
+        }
+
+        .sq {
+            position: relative;
+            display: inline-block;
+            flex: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 5px;
+            background: var(--bg);
+            border: 1px solid var(--line);
+            overflow: hidden
+        }
+
+        .sq .ph {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--muted)
+        }
+
+        .sq img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: var(--panel)
+        }
+
+        .sq.sm {
+            width: 26px;
+            height: 26px
+        }
+
+        .sq.sm .ph {
+            font-size: 9px
+        }
+
+        .tag {
+            font-size: 11px;
+            padding: 0 6px;
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            color: var(--muted);
+            margin-left: 4px;
+            white-space: nowrap
+        }
+
+        .ctl {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            flex-wrap: wrap
+        }
+
+        .ctl label {
+            font-size: 13px;
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+            margin-right: auto
+        }
+
+        .st {
+            padding: 0 6px;
+            font-size: 16px;
+            line-height: 1.4;
+            color: var(--muted)
+        }
+
+        .st.on {
+            color: var(--gold);
+            border-color: var(--gold)
+        }
+
+        .badge {
+            font-size: 13px;
+            font-weight: 600
+        }
+
+        .ready .badge {
+            color: var(--good)
+        }
+
+        .short .badge {
+            color: var(--gold)
+        }
+
+        .max .badge {
+            color: var(--accent)
+        }
+
+        .chip {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            font-size: 13px;
+            padding: 2px 4px;
+            border-radius: 4px;
+            border: 1px solid var(--line)
+        }
+
+        .chip.ok {
+            border-color: var(--good)
+        }
+
+        .chip.no {
+            border-color: var(--warn)
+        }
+
+        .chip span.t {
+            flex: 1;
+            min-width: 0
+        }
+
+        .chip i {
+            font-style: normal;
+            font-size: 12px;
+            white-space: nowrap
+        }
+
+        .chip.ok i {
+            color: var(--good)
+        }
+
+        .chip.no i {
+            color: var(--warn)
+        }
+
+        .chips2 {
+            display: grid;
+            gap: 3px
+        }
+
+        .pc details summary {
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--muted)
+        }
+
+        .tier h4 {
+            margin: 6px 0 3px;
+            font-size: 13px
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px
+        }
+
+        td,
+        th {
+            text-align: left;
+            padding: 3px 4px;
+            border-bottom: 1px solid var(--line)
+        }
+
+        td.n,
+        th.n {
+            text-align: right;
+            white-space: nowrap
+        }
+
+        td .sq {
+            vertical-align: middle;
+            margin-right: 6px
+        }
+
+        .warn {
+            color: var(--warn)
+        }
+
+        .good {
+            color: var(--good)
+        }
+
+        a {
+            color: var(--accent)
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <a class="navlink" href="index.html">&larr; Cooking pot</a>
+        <h1 id="ttl">Legend of Zelda Armor Upgrades</h1>
+        <div class="gm" id="gm" role="group" aria-label="Game"></div>
+        <p>Track your armor and see which upgrades you can afford right now. The ingredient quantities you saved on the
+            cooking pot page are used automatically, so highlighted pieces are ones you can upgrade today.</p>
+    </header>
+    <main>
+        <section>
+            <div class="bar">
+                <input id="q" type="search" placeholder="Search armor or ingredient" aria-label="Search armor or ingredient" size="22">
+                <div class="chips" id="fchips" role="group" aria-label="Filter"></div>
+            </div>
+            <div class="bar">
+                <label><input type="checkbox" id="own"> Only pieces I own</label>
+                <label id="lblA"><input type="checkbox" id="amiibo"> Amiibo items</label>
+                <label id="lblD"><input type="checkbox" id="dlc"> DLC items</label>
+            </div>
+            <div id="inv"></div>
+            <div id="sets"></div>
+        </section>
+        <aside>
+            <div>
+                <h2>Materials needed</h2>
+                <div class="bar">
+                    <select id="plan" aria-label="Plan scope">
+                        <option value="next">Next star only</option>
+                        <option value="all">All remaining stars</option>
+                    </select>
+                </div>
+                <div id="sum"></div>
+            </div>
+            <div>
+                <h2>How this works</h2>
+                <div id="help"></div>
+            </div>
+        </aside>
+    </main>
+    <script src="data-armor.js"></script>
+    <script src="images.js"></script>
+    <script src="armor-images.js"></script>
+    <script>
+        const $ = id => document.getElementById(id);
+        const NAMES = { BotW: 'Breath of the Wild', TotK: 'Tears of the Kingdom' };
+        const TYPE = { hat: 'Head', shirt: 'Chest', pants: 'Legs' };
+        const STARS = n => '\u2605'.repeat(n) + '\u2606'.repeat(4 - n);
+        const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        const key = s => s.replace(/[^A-Za-z]/g, '').toLowerCase();
+        const ini = s => s.split(/[^A-Za-z]+/).filter(Boolean).map(w => w[0]).join('').slice(0, 3);
+        const rd = k => { try { return JSON.parse(localStorage.getItem(k) || 'null') } catch (e) { return null } };
+
+        /* ---------- state: this page's own choices (owned pieces, star levels, filters) ---------- */
+        const A = rd('armorState1') || {};
+        A.owned = A.owned || {}; A.lvl = A.lvl || {};
+        A.f = Object.assign({ filter: 'all', own: false, amiibo: true, dlc: true, plan: 'next', q: '' }, A.f);
+        if (!ARMOR[A.game]) { const st = rd('botwState3'); A.game = st && st.S && ARMOR[st.S.game] ? st.S.game : 'BotW' }
+        Object.keys(ARMOR).forEach(g => { A.owned[g] = A.owned[g] || {}; A.lvl[g] = A.lvl[g] || {} });
+        const save = () => { try { localStorage.setItem('armorState1', JSON.stringify(A)) } catch (e) { } };
+        const openP = new Set(), closedS = new Set();
+
+        /* ---------- ingredient quantities saved by the cooking pot page (read only) ---------- */
+        const readInv = () => { const st = rd('botwState3'); return (st && st.invs && st.invs[A.game]) || {} };
+        const hasAnyInv = inv => Object.values(inv).some(v => v > 0);
+
+        /* ---------- images ---------- */
+        const ingMaps = {};
+        function ingImg(n) {
+            const g = A.game;
+            if (!ingMaps[g]) {
+                ingMaps[g] = {}; const re = new RegExp('^' + g + '(\\d+)-(.+)\\.png$', 'i');
+                (typeof IMAGES !== 'undefined' ? IMAGES : []).forEach(f => { const m = f.match(re); if (m) ingMaps[g][key(m[2])] = 'img/' + f })
+            }
+            return ingMaps[g][key(n)] || ''
+        }
+        const armMaps = {};
+        (typeof ARMOR_IMAGES !== 'undefined' ? ARMOR_IMAGES : []).forEach(f => {
+            const m = f.match(/^(BotW|TotK)-(.+)\.(png|webp|jpe?g)$/i); if (m) (armMaps[m[1].toLowerCase()] = armMaps[m[1].toLowerCase()] || {})[key(m[2])] = 'img/armor/' + f
+        });
+        const armImg = (set, p) => { const m = armMaps[A.game.toLowerCase()] || {}; return m[key(p.n)] || m[key(set.name)] || '' };
+        const sq = (src, label, cls) => `<span class="sq ${cls || ''}"><span class="ph">${esc(ini(label))}</span>${src ? `<img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span>`;
+
+        /* ---------- armor logic ---------- */
+        const tiersOf = (set, p) => 'u' in p ? p.u : set.u;
+        const feesOf = (set, p) => p.r || set.r || ARMOR[A.game].rupees || null;
+        function info(set, p, inv) {
+            const u = tiersOf(set, p), lvl = A.lvl[A.game][p.n] || 0, owned = !!A.owned[A.game][p.n];
+            if (!u) return { set, p, u, lvl, owned, st: 'none' };
+            if (lvl >= 4) return { set, p, u, lvl, owned, st: 'max' };
+            const next = u[lvl], miss = next.filter(([n, q]) => (inv[n] || 0) < q);
+            return { set, p, u, lvl, owned, next, miss, st: miss.length ? 'short' : 'ready' };
+        }
+        function passes(x, inv) {
+            const f = A.f, p = x.p;
+            if (f.own && !x.owned) return false;
+            if (p.a && !f.amiibo) return false;
+            if (p.d && !f.dlc) return false;
+            if (f.filter == 'ready' && !(x.owned && x.st == 'ready')) return false;
+            if (f.filter == 'short' && !(x.owned && x.st == 'short')) return false;
+            if (f.filter == 'max' && x.st != 'max') return false;
+            if (f.filter == 'none' && x.st != 'none') return false;
+            const q = f.q.trim().toLowerCase();
+            if (q) {
+                const hay = [p.n, x.set.name].concat((x.u || []).flat().map(i => i[0])).join('|').toLowerCase();
+                if (!hay.includes(q)) return false
+            }
+            return true
+        }
+        const chip = ([n, q], inv) => { const h = inv[n] || 0, ok = h >= q; return `<div class="chip ${ok ? 'ok' : 'no'}" title="${esc(n)}: need ${q}, have ${h}">${sq(ingImg(n), n, 'sm')}<span class="t"><b>${q}&times;</b> ${esc(n)}</span><i>have ${h}</i></div>` };
+
+        function card(x, inv) {
+            const { set, p, u, lvl, owned, st } = x, fees = feesOf(set, p);
+            const tags = (p.a ? '<span class="tag">Amiibo</span>' : '') + (p.d ? '<span class="tag">DLC</span>' : '');
+            let body;
+            if (st == 'none') body = '<div class="badge muted">Cannot be upgraded</div>';
+            else {
+                let badge;
+                if (st == 'max') badge = '\u2605\u2605\u2605\u2605 fully upgraded';
+                else if (st == 'ready') badge = owned ? `Ready: can upgrade to ${STARS(lvl + 1)}` : `You have the materials for ${STARS(lvl + 1)} (not owned)`;
+                else badge = `Short ${x.miss.length} ingredient${x.miss.length > 1 ? 's' : ''} for ${STARS(lvl + 1)}`;
+                body = `<div class="badge">${badge}</div>`;
+                if (st != 'max') {
+                    body += `<div class="chips2">${x.next.map(i => chip(i, inv)).join('')}</div>`;
+                    if (fees) body += `<div class="note muted">Fee: ${fees[lvl].toLocaleString()} rupees</div>`
+                }
+                body += `<details data-d="${esc(p.n)}" ${openP.has(p.n) ? 'open' : ''}><summary>All four stars</summary>${u.map((t, i) => `<div class="tier"><h4>${STARS(i + 1)}${fees ? ` <span class="muted">&middot; ${fees[i].toLocaleString()} rupees</span>` : ''}${i < lvl ? ' <span class="good">done</span>' : ''}</h4><div class="chips2">${t.map(c => chip(c, inv)).join('')}</div></div>`).join('')}</details>`
+            }
+            const ctl = st == 'none' ? '' : `<div class="ctl"><label><input type="checkbox" data-own="${esc(p.n)}" ${owned ? 'checked' : ''}> I own this</label>${[1, 2, 3, 4].map(n => `<button class="st ${lvl >= n ? 'on' : ''}" data-lv="${n}" data-p="${esc(p.n)}" title="Set current level to ${n} star${n > 1 ? 's' : ''}" aria-label="Level ${n}">\u2605</button>`).join('')}</div>`;
+            return `<div class="pc ${st} ${owned ? '' : 'unowned'}">
+                <div class="ph1">${sq(armImg(set, p), p.n)}<div><b>${esc(p.n)}</b><span class="muted">${TYPE[p.t] || ''}</span>${tags}</div></div>
+                ${ctl}${body}</div>`
+        }
+
+        function render() {
+            const inv = readInv(), g = ARMOR[A.game];
+            document.title = `LoZ Cookery \u2013 ${NAMES[A.game]} Armor Upgrades`;
+            $('ttl').textContent = `Legend of Zelda: ${NAMES[A.game]} Armor Upgrades`;
+            $('gm').innerHTML = Object.keys(ARMOR).map(k => `<button data-game="${k}" class="${k == A.game ? 'on' : ''}">${NAMES[k]}</button>`).join('');
+            $('fchips').innerHTML = [['all', 'All'], ['ready', 'Ready to upgrade'], ['short', 'Need materials'], ['max', 'Maxed'], ['none', 'Cannot upgrade']].map(([k, l]) => `<button data-f="${k}" class="${A.f.filter == k ? 'on' : ''}">${l}</button>`).join('');
+            $('own').checked = A.f.own; $('amiibo').checked = A.f.amiibo; $('dlc').checked = A.f.dlc; $('plan').value = A.f.plan;
+            if ($('q').value != A.f.q) $('q').value = A.f.q;
+            const hasA = g.sets.some(s => s.pieces.some(p => p.a)), hasD = g.sets.some(s => s.pieces.some(p => p.d));
+            $('lblA').style.display = hasA ? '' : 'none'; $('lblD').style.display = hasD ? '' : 'none';
+            $('inv').innerHTML = hasAnyInv(inv) ? '' : `<div class="banner">No ingredient quantities are saved for ${NAMES[A.game]} yet. Enter what you own on the <a href="index.html">cooking pot page</a> and it shows up here automatically, so every piece will read as short until then.</div>`;
+
+            const shown = []; let html = '';
+            g.sets.forEach(set => {
+                const xs = set.pieces.map(p => info(set, p, inv)).filter(x => passes(x, inv));
+                if (!xs.length) return; shown.push(...xs);
+                const own = xs.filter(x => x.owned).length, rdy = xs.filter(x => x.owned && x.st == 'ready').length;
+                const sImg = armImg(set, set.pieces[0]);
+                html += `<details class="set" data-s="${esc(set.name)}" ${closedS.has(set.name) ? '' : 'open'}><summary>${sq(sImg, set.name, 'sm')}${esc(set.name)}<span class="cnt">${rdy ? `<b class="good">${rdy} ready</b> &middot; ` : ''}${own} of ${xs.length} owned</span></summary><div class="grid">${xs.map(x => card(x, inv)).join('')}</div></details>`
+            });
+            $('sets').innerHTML = html || '<p class="muted">No armor matches these filters.</p>';
+            summary(shown, inv); help()
+        }
+
+        function summary(shown, inv) {
+            const rows = {}; let rup = 0, pieces = 0, ready = 0; const fees = ARMOR[A.game].rupees;
+            shown.forEach(x => {
+                if (!x.owned || !x.u || x.lvl >= 4) return; pieces++; if (x.st == 'ready') ready++;
+                const from = x.lvl, to = A.f.plan == 'all' ? 4 : x.lvl + 1, f = feesOf(x.set, x.p);
+                for (let t = from; t < to; t++) { x.u[t].forEach(([n, q]) => rows[n] = (rows[n] || 0) + q); if (f) rup += f[t] }
+            });
+            const list = Object.entries(rows).map(([n, need]) => ({ n, need, have: inv[n] || 0 })).map(r => ({ ...r, short: Math.max(0, r.need - r.have) })).sort((a, b) => b.short - a.short || a.n.localeCompare(b.n));
+            if (!pieces) { $('sum').innerHTML = '<p class="muted note">Tick &ldquo;I own this&rdquo; on the pieces you have and set their current star level. The ingredients they still need are totalled here, for the pieces shown on the left.</p>'; return }
+            const missing = list.filter(r => r.short).length;
+            $('sum').innerHTML = `<p class="note"><b>${pieces}</b> owned piece${pieces > 1 ? 's' : ''} to upgrade, <b class="${ready ? 'good' : ''}">${ready}</b> ready now. ${missing ? `<span class="warn">${missing} ingredient${missing > 1 ? 's' : ''} short.</span>` : '<span class="good">You have everything.</span>'}${fees ? ` Fees: ${rup.toLocaleString()} rupees.` : ''}</p>
+                <table><tr><th>Ingredient</th><th class="n">Need</th><th class="n">Have</th><th class="n">Short</th></tr>${list.map(r => `<tr><td>${sq(ingImg(r.n), r.n, 'sm')}${esc(r.n)}</td><td class="n">${r.need}</td><td class="n">${r.have}</td><td class="n ${r.short ? 'warn' : 'good'}">${r.short || '\u2713'}</td></tr>`).join('')}</table>
+                <p class="note muted">Totals add up every piece, but each piece is checked on its own for &ldquo;ready&rdquo;, so two pieces that need the same ingredient can both read as ready when you only have enough for one.</p>`
+        }
+
+        function help() {
+            const botw = A.game == 'BotW';
+            $('help').innerHTML = `<p class="note"><b class="good">Green</b> pieces are ones you own that you can upgrade right now with the ingredients you saved. <b style="color:var(--gold)">Gold</b> pieces are short on at least one ingredient. Faded pieces are not upgradable.</p>
+                <p class="note">Set the current star level with the star buttons (click the current level again to lower it). The card then shows the next star's ingredients, with what you have next to what you need.</p>
+                <p class="note">${botw ? 'Breath of the Wild upgrades cost materials only; the Great Fairies charge rupees just to wake them.' : 'Tears of the Kingdom upgrades cost rupees as well as materials: 10, 50, 200 and 500 for stars 1 to 4 (Ancient Hero\u2019s Aspect costs more).'} The highest star you can reach depends on how many Great Fairies you have awakened.</p>
+                <p class="note muted">Quantities come from the cooking pot page and refresh when you return to this tab. They are read only here, so edit them on the cooking pot page.${botw ? '' : ' TotK values come from Prima Games and have not been verified in game.'}</p>
+                <p class="note muted">Armor images are optional: see <code>armor-images.js</code>.</p>`
+        }
+
+        /* ---------- events ---------- */
+        const find = name => { for (const s of ARMOR[A.game].sets) for (const p of s.pieces) if (p.n == name) return [s, p] };
+        document.addEventListener('click', e => {
+            const t = e.target.closest('button'); if (!t) return;
+            if (t.dataset.game) { A.game = t.dataset.game; save(); return render() }
+            if (t.dataset.f) { A.f.filter = t.dataset.f; save(); return render() }
+            if (t.dataset.lv) {
+                const n = +t.dataset.lv, nm = t.dataset.p, cur = A.lvl[A.game][nm] || 0, nl = cur == n ? n - 1 : n;
+                A.lvl[A.game][nm] = nl; if (nl > 0) A.owned[A.game][nm] = 1; save(); render()
+            }
+        });
+        document.addEventListener('change', e => {
+            const t = e.target;
+            if (t.dataset.own) { if (t.checked) A.owned[A.game][t.dataset.own] = 1; else delete A.owned[A.game][t.dataset.own]; save(); return render() }
+            if (t.id == 'own') A.f.own = t.checked; else if (t.id == 'amiibo') A.f.amiibo = t.checked; else if (t.id == 'dlc') A.f.dlc = t.checked; else if (t.id == 'plan') A.f.plan = t.value; else return;
+            save(); render()
+        });
+        $('q').addEventListener('input', e => { A.f.q = e.target.value; save(); render(); const q = $('q'); q.focus() });
+        document.addEventListener('toggle', e => {
+            const d = e.target; if (!(d instanceof HTMLDetailsElement)) return;
+            if (d.dataset.s != null) { d.open ? closedS.delete(d.dataset.s) : closedS.add(d.dataset.s) }
+            else if (d.dataset.d != null) { d.open ? openP.add(d.dataset.d) : openP.delete(d.dataset.d) }
+        }, true);
+        window.addEventListener('storage', e => { if (e.key == 'botwState3') render() });
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) render() });
+        window.addEventListener('focus', render);
+        render();
+    </script>
+</body>
+
+</html>

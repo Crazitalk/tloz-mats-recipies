@@ -414,6 +414,18 @@
             font-size: 13px
         }
 
+        .navlink {
+            display: inline-block;
+            margin-bottom: 6px;
+            color: var(--accent);
+            font-weight: 600;
+            text-decoration: none
+        }
+
+        .navlink:hover {
+            text-decoration: underline
+        }
+
         .gm {
             display: flex;
             gap: 6px;
@@ -437,6 +449,7 @@
 
 <body>
     <header>
+        <a class="navlink" href="armor.html">Armor upgrades &rarr;</a>
         <h1 id="ttl">Legend of Zelda Cooking Pot</h1>
         <div class="gm" id="gm" role="group" aria-label="Game"></div>
         <p>Build a pot to see what it makes and what it sells for. Enter the ingredients you own, choose what you want
