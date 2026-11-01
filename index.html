@@ -400,6 +400,10 @@
             vertical-align: middle
         }
 
+        .wh {
+            white-space: nowrap
+        }
+
         .pd {
             display: flex;
             gap: 14px;
@@ -449,7 +453,7 @@
 
 <body>
     <header>
-        <a class="navlink" href="armor.html">Armor upgrades &rarr;</a>
+        <a class="navlink" href="armor.html">Armor &amp; weapons &rarr;</a>
         <h1 id="ttl">Legend of Zelda Cooking Pot</h1>
         <div class="gm" id="gm" role="group" aria-label="Game"></div>
         <p>Build a pot to see what it makes and what it sells for. Enter the ingredients you own, choose what you want
@@ -490,14 +494,13 @@
                 <div class="cw">
                     <div class="chips" id="effs"></div>
                 </div>
-                <div class="pd" id="pdbox"><label><input type="radio" name="pd" value="bal"> Max power + balanced
-                        duration</label><label><input type="radio" name="pd" value="max"> Max power + max
-                        duration</label></div>
+                <div class="pd" id="tbox"><span class="muted">Max tier</span>
+                    <div class="chips" id="tiers"></div>
+                </div>
                 <div class="bar"><label><input type="checkbox" id="meals"> Meals</label><label><input type="checkbox"
                             id="elix"> Elixirs</label></div>
                 <div class="bar"><label>Rank by <select id="rank">
                             <option value="price">Sell price</option>
-                            <option value="net">Net gain</option>
                             <option value="hearts">Hearts restored</option>
                             <option value="effect">Effect bonus</option>
                             <option value="dur">Max duration</option>
@@ -519,8 +522,10 @@
     <script>
         const $ = id => document.getElementById(id), fmt = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
         const DESC = typeof DESCRIPTIONS !== 'undefined' ? DESCRIPTIONS : {};
-        const HI = n => `<img class="hi" src="img/h${n}.webp" alt="" onerror="this.replaceWith('\u2665')">`, heartsHTML = x => { x = Math.round(x * 4) / 4; if (!x) return '0'; const f = Math.floor(x), q = Math.round((x - f) * 4); return HI(4).repeat(f) + (q ? HI(q) : '') }, staHTML = n => n > 0 ? `<img class="si" src="img/s${String(Math.min(15, n)).padStart(2, '0')}.webp" alt="${n}" onerror="this.replaceWith('${n}')">` : '0';
-        let S = { game: 'BotW', hearts: 8, stam: 10, eff: '', pd: 'max', rank: 'price', meals: true, elix: true, groups: [] }, invs = { BotW: {}, TotK: {} }, inv, pot = [], found = [], rset = null, G;
+        const HI = n => `<img class="hi" src="img/h${n}.webp" alt="" onerror="this.replaceWith('\u2665')">`, heartsHTML = x => { x = Math.round(x * 4) / 4; if (!x) return '0'; const f = Math.floor(x), q = Math.round((x - f) * 4); return HI(4).repeat(f) + (q ? HI(q) : '') }, BH = n => { const k = Math.floor(n); return k > 0 ? `<span class="wh" title="+${n} bonus heart${n == 1 ? '' : 's'}">` + `<img class="hi" src="img/h+4.webp" alt="" onerror="this.replaceWith('+\u2665')">`.repeat(k) + '</span>' : '' },
+            wheelHTML = (n, bonus) => { n = Math.min(15, Math.round(n)); if (!(n > 0)) return ''; const f = Math.floor(n / 5), r = n % 5, pre = bonus ? '+' : '', parts = Array(f).fill(5).concat(r ? [r] : []); return `<span class="wh" title="${pre}${n}/5 wheel">` + parts.map(k => `<img class="si" src="img/s${pre}${k}.webp" alt="" onerror="this.replaceWith('${pre}${k}/5 ')">`).join('') + '</span>' },
+            staHTML = n => n > 0 ? wheelHTML(n) : '0';
+        let S = { game: 'BotW', hearts: 8, stam: 10, eff: '', tier: 0, rank: 'price', meals: true, elix: true, groups: [] }, invs = { BotW: {}, TotK: {} }, inv, pot = [], found = [], rset = null, G;
 
         /* ---------- shared helpers ---------- */
         // Images are named <Game><number>-<Item>.png (BotW001-HeartyDurian.png, TotK001-Apple.png); only the active game's prefix is used.
@@ -588,19 +593,20 @@
                 const ps = [...new Set(u.map(x => M[x].p).filter(Boolean))], eff = ps.length == 1 ? ps[0] : '', mix = ps.length > 1 ? ps : null; let pts = 0; if (eff) u.forEach(x => { if (M[x].p == eff) pts += M[x].pt || 1 });
                 let lvl = 0, temp = 0, fifths = 0, dur = 0;
                 if (TH[eff]) { lvl = TH[eff].filter(t => pts >= t).length; const c = {}; items.forEach(x => c[x] = (c[x] || 0) + 1); for (const k in c) { const t = M[k].t || 30; dur += t + (c[k] - 1) * (/Other Food|Dragon/.test(M[k].c) || k == 'Star Fragment' ? 30 : t) } dur = Math.min(1800, dur) }
-                else if (eff == 'Hearty') temp = Math.min(30, Math.floor(pts)); else if (eff == 'Energizing') fifths = Math.min(S.stam, 15, Math.floor(pts)); else if (eff == 'Enduring') fifths = Math.min(10, Math.floor(pts));
+                else if (eff == 'Hearty') temp = Math.max(0, Math.min(30 - S.hearts, Math.floor(pts))); else if (eff == 'Energizing') fifths = Math.min(S.stam, 15, Math.floor(pts)); else if (eff == 'Enduring') fifths = Math.min(10, Math.floor(pts));
                 const sumH = u.reduce((a, x) => a + (M[x].h || 0), 0), hearts = elix ? 0 : (eff == 'Hearty' ? S.hearts : Math.min(S.hearts, 2 * sumH)), p = price(n, raw);
                 return { name, elix, eff, mix, lvl, temp, fifths, dur, hearts, price: p, raw, net: p - raw, n, pow: TH[eff] ? lvl : eff == 'Hearty' ? temp : fifths }
             }
-            const effTxt = e => !e.eff ? (e.mix ? `None (${e.mix.join(' + ')} cancel out)` : 'No effect') : TH[e.eff] ? `${e.eff} ${e.lvl}${e.lvl == TH[e.eff].length ? ' (max)' : ''}` : e.eff == 'Hearty' ? `Hearty +${e.temp} temp hearts` : `${e.eff} ${(e.fifths / 5).toFixed(1)} wheel ${e.eff == 'Energizing' ? staHTML(e.fifths) : ''}`;
+            const effTxt = e => !e.eff ? (e.mix ? `None (${e.mix.join(' + ')} cancel out)` : 'No effect') : TH[e.eff] ? `${e.eff} ${e.lvl}${e.lvl == TH[e.eff].length ? ' (max)' : ''}` : e.eff == 'Hearty' ? `Hearty +${e.temp} temp hearts${e.elix ? ' ' + BH(e.temp) : ''}` : `${e.eff} ${(e.fifths / 5).toFixed(1)} wheel ${e.eff == 'Energizing' ? staHTML(e.fifths) : e.eff == 'Enduring' ? wheelHTML(e.fifths, 1) : ''}`;
             const recList = RECS.map(r => ({ name: r[0], text: r[2], note: r[3], all: (REC.find(y => y.name == r[0]) || { all: [] }).all }));
             return {
                 id: 'BotW', title: 'Breath of the Wild', M, names, effs, EL, NOSTD: ['Dragon Part', 'Fairy', 'Star Fragment', 'Ore / Gem / Misc', 'Ancient (Guardian) Part'], maxCand: 30, lim: 1500, recList,
-                timed: e => !!TH[e], evalPot, effTxt, tipDur: m => m.p && TH[m.p] && m.t ? ' \u00b7 +' + fmt(m.t) + ' duration' : '',
+                timed: e => !!TH[e], tiers: e => TH[e] ? TH[e].length : 0, evalPot, effTxt, tipDur: m => m.p && TH[m.p] && m.t ? ' \u00b7 +' + fmt(m.t) + ' duration' : '',
                 cook(items) { const d = dish(items), e = evalPot(items, true); return { name: d.name, price: d.price, raw: d.S, n: d.n, factor: F[d.n], fixed: d.fixed, ev: e, msg: 'This pot fails as a recipe and sells for 2.' } },
                 help: `<p>Sell price = sum of ingredient sell values &times; a factor for the number of items (1: 1.5, 2: 1.8, 3: 2.1, 4: 2.4, 5: 2.8), rounded down, then up to the next 10. Failed recipes sell for 2. Net gain = sell price minus the ingredients' raw sell value.</p>
-                    <p>Hearts: cooking doubles each ingredient's raw hearts, capped at your hearts. A Hearty dish fully restores and adds the points as temporary hearts. Elixirs restore none. Fish, eggs, honey and a few others have no heart data and count as 0. Effects: points add up, one effect per pot (if the ingredients carry two or more different effects, including Hearty, they all cancel and the dish has no effect), and tiers use the wiki thresholds. Points come from the community ingredient chart; Energizing amounts are the stamina fifths each item restores. Duration: each ingredient adds its listed time; extra copies of pantry items (eggs, dairy, grains, spices) and dragon parts add 30 s; capped at 30:00. Energizing is capped by your stamina. "Balanced" duration counts up to 10:00 only, then prefers the cheaper pot.</p>
+                    <p>Hearts: cooking doubles each ingredient's raw hearts, capped at your hearts. A Hearty dish fully restores and adds the points as temporary hearts, but your hearts plus temporary hearts never exceed 30. Elixirs restore none. Fish, eggs, honey and a few others have no heart data and count as 0. Effects: points add up, one effect per pot (if the ingredients carry two or more different effects, including Hearty, they all cancel and the dish has no effect), and tiers use the wiki thresholds. Points come from the community ingredient chart; Energizing amounts are the stamina fifths each item restores. Duration: each ingredient adds its listed time; extra copies of pantry items (eggs, dairy, grains, spices) and dragon parts add 30 s; capped at 30:00. Energizing is capped by your stamina.</p>
                     <p>Look Up only uses ingredients currently shown (filters and recipe search apply). To keep it fast, the finder only combines the best owned candidates (those carrying the chosen effect plus the top fillers by price, hearts and duration). A pot only counts as a recipe if every item belongs to it. The game's possible buy-price cap isn't modelled.</p>
+                    <p>Max tier: for effects with more than one tier, the finder only keeps pots whose effect is at or below the tier you pick, so you don't spend ingredients on power you don't need. It is not shown for effects with a single tier or none.</p>
                     <p>Data sources (confirm): Zelda Dungeon Wiki "Breath of the Wild Recipes", IGN Wiki "All Recipes and Cookbook", and the all-recipes chart by victorv111.</p>`
             }
         }
@@ -655,11 +661,11 @@
             }
             function evalPot(items) {
                 const r = cookT(items); if (r.fixed) return null; const t = r.effT && E[r.effT]; let lvl = 0, temp = 0, fifths = 0, dur = 0, gl = 0;
-                if (t) { if (t.timed) { lvl = r.lvl; dur = r.time } else if (r.effT == 'LifeMaxUp') temp = r.lvl / 4; else if (r.effT == 'StaminaRecover') fifths = Math.min(S.stam, r.lvl); else if (r.effT == 'ExStaminaMaxUp') fifths = r.lvl; else gl = r.lvl / 4 }
+                if (t) { if (t.timed) { lvl = r.lvl; dur = r.time } else if (r.effT == 'LifeMaxUp') temp = Math.max(0, Math.min(30 - S.hearts, r.lvl / 4)); else if (r.effT == 'StaminaRecover') fifths = Math.min(S.stam, r.lvl); else if (r.effT == 'ExStaminaMaxUp') fifths = r.lvl; else gl = r.lvl / 4 }
                 const hearts = r.elix ? 0 : (r.hp >= 160 ? S.hearts : Math.min(S.hearts, r.hp / 4));
                 return { name: r.name, elix: !!r.elix, eff: r.eff, effT: r.effT, mix: r.mix, lvl, temp, fifths, gl, dur, hearts, price: r.price, raw: r.raw, net: r.price - r.raw, n: r.n, pow: t && t.timed ? lvl : temp || gl || fifths }
             }
-            const effTxt = e => !e.eff ? (e.mix ? `None (${e.mix.join(' + ')} cancel out)` : 'No effect') : E[e.effT].timed ? `${e.eff} Lv ${e.lvl}${e.lvl == E[e.effT].max ? ' (max)' : ''}` : e.effT == 'LifeMaxUp' ? `Hearty +${e.temp} temp hearts` : e.effT == 'LifeRepair' ? `Sunny: restores ${e.gl} gloom hearts` : `${e.eff} ${(e.fifths / 5).toFixed(1)} wheel ${e.eff == 'Energizing' ? staHTML(e.fifths) : ''}`;
+            const effTxt = e => !e.eff ? (e.mix ? `None (${e.mix.join(' + ')} cancel out)` : 'No effect') : E[e.effT].timed ? `${e.eff} Lv ${e.lvl}${e.lvl == E[e.effT].max ? ' (max)' : ''}` : e.effT == 'LifeMaxUp' ? `Hearty +${e.temp} temp hearts${e.elix ? ' ' + BH(e.temp) : ''}` : e.effT == 'LifeRepair' ? `Sunny: restores ${e.gl} gloom hearts` : `${e.eff} ${(e.fifths / 5).toFixed(1)} wheel ${e.eff == 'Energizing' ? staHTML(e.fifths) : e.eff == 'Enduring' ? wheelHTML(e.fifths, 1) : ''}`;
             const TAG = { CookFruit: 'any fruit', CookMushroom: 'any mushroom', CookPlant: 'any leafy vegetable or herb', CookMeat: 'any meat', CookFish: 'any fish, crab or snail', CookEnemy: 'any monster part', CookInsect: 'any critter', CookSpice: 'any seasoning or dragon part', CookGolem: 'any construct part', CookOre: 'any ore', CookForeign: 'any inedible plant' };
             const byA = {}; names.forEach(n => byA[M[n].a] = n);
             const tokTxt = o => TAG[o] || byA[o] || o, tokAll = o => names.filter(n => hit(o, M[n]));
@@ -672,13 +678,14 @@
             const effs = T.order.map(k => E[k].l).filter(l => LT[l]);
             return {
                 id: 'TotK', title: 'Tears of the Kingdom', M, names, effs, EL, NOSTD: ['Dragon Part', 'Fairy', 'Star Fragment', 'Ore / Gem / Misc', 'Construct Part'], maxCand: 18, lim: 600, recList,
-                timed: l => !!(LT[l] && E[LT[l]].timed), evalPot, effTxt, tipDur: m => m.t ? ' \u00b7 +' + fmt(m.t) + ' duration' : '',
+                timed: l => !!(LT[l] && E[LT[l]].timed), tiers: l => LT[l] && E[LT[l]].timed ? E[LT[l]].max : 0, evalPot, effTxt, tipDur: m => m.t ? ' \u00b7 +' + fmt(m.t) + ' duration' : '',
                 cook(items) { const r = cookT(items); return { name: r.name, price: r.price, raw: r.raw, n: r.n, factor: +T.rates[r.n].toFixed(2), fixed: r.fixed, ev: evalPot(items), msg: r.fixed && r.name == 'Fairy Tonic' ? 'Fairy Tonics sell for 2.' : 'This pot makes a failed dish and sells for 2.' } },
                 help: `<p>These rules come from the game's own cooking data, not the wiki approximations used for Breath of the Wild.</p>
                     <p>Sell price = sum of the ingredients' sell values &times; a factor for the number of items (1: 1.2, 2: 1.3, 3: 1.4, 4: 1.6, 5: 1.8), rounded down, with a minimum of 3. There is no rounding up to 10 in this game. Dragon parts and Star Fragments count as 1 rupee when cooked. Failed dishes, Fairy Tonics and Rock-Hard Food sell for 2.</p>
                     <p>Recipes are matched the way the game does it: the pot's distinct ingredients are checked against the recipe list in order and the first match wins. Four copies of one fruit are still Simmered Fruit, because "Copious" dishes need four different kinds.</p>
-                    <p>Effects: each ingredient with an effect adds its hidden potency. Level = total potency &times; a per-effect rate, rounded down (minimum 1, capped per effect). One effect per pot: ingredients with two or more different effects cancel and the dish has no effect, and an elixir with clashing effects fails. Hearty and Sunny levels are quarter hearts. Hearts restored = twice the ingredients' raw hearts plus the recipe's bonus, capped at your hearts; 30 or more hearts' worth is a full heal.</p>
-                    <p>Duration = 30 s per item + a base time per effect ingredient (Hasty 0:30, Mighty/Tough 0:20, Sneaky/Bright/Sticky/Rapid 1:30, Chilly/Spicy/Electro/Fireproof/Warding 2:00) + the bonus time on seasonings, dragon parts and monster parts, capped at 30:00. "Balanced" duration counts up to 10:00 only, then prefers the cheaper pot.</p>
+                    <p>Effects: each ingredient with an effect adds its hidden potency. Level = total potency &times; a per-effect rate, rounded down (minimum 1, capped per effect). One effect per pot: ingredients with two or more different effects cancel and the dish has no effect, and an elixir with clashing effects fails. Hearty and Sunny levels are quarter hearts. Hearts restored = twice the ingredients' raw hearts plus the recipe's bonus, capped at your hearts; 30 or more hearts' worth is a full heal. Temporary hearts from Hearty are capped so your hearts plus temporary hearts never exceed 30.</p>
+                    <p>Duration = 30 s per item + a base time per effect ingredient (Hasty 0:30, Mighty/Tough 0:20, Sneaky/Bright/Sticky/Rapid 1:30, Chilly/Spicy/Electro/Fireproof/Warding 2:00) + the bonus time on seasonings, dragon parts and monster parts, capped at 30:00.</p>
+                    <p>Max tier: for effects with more than one level, the finder only keeps pots whose effect is at or below the tier you pick, so you don't spend ingredients on power you don't need. It is not shown for effects with a single level or none.</p>
                     <p>Not modelled: Critical cooks (a random extra: more hearts, +1 level or +5:00; guaranteed by dragon parts, Star Fragments and Golden Apples) and Monster Extract (which randomises hearts, level and duration). Results show the base outcome. The finder only combines up to 18 of the best owned candidates, to stay quick.</p>
                     <p>Data: game values from the community CookingMgr datamine (Echocolat/TOTK-Cooking-Calculator, with KingFoo's original simulator), recipe rules cross-checked against Zelda Dungeon's "Tears of the Kingdom Food" and "Recipes" pages (the Fextralife and Game8 recipe pages are further references). Ingredient images are placeholders (TotK###-Name.png in img/) until you add them.</p>`
             }
@@ -724,32 +731,35 @@
         function setUI() {
             $('hn').value = S.hearts; $('hh').innerHTML = heartsHTML(S.hearts); $('sn').value = S.stam; $('ss').innerHTML = staHTML(S.stam);
             $('meals').checked = S.meals; $('elix').checked = S.elix; $('rank').value = S.rank;
-            document.querySelectorAll('[name=pd]').forEach(r => r.checked = r.value == S.pd); $('pdbox').style.display = G.timed(S.eff) ? 'flex' : 'none';
+            if (!KEYS[S.rank]) S.rank = 'price'; $('rank').value = S.rank;
+            const nt = G.tiers(S.eff); if (S.tier >= nt) S.tier = 0; const ct = S.tier || nt;
+            $('tbox').style.display = nt > 1 ? 'flex' : 'none';
+            $('tiers').innerHTML = nt > 1 ? Array.from({ length: nt }, (_, i) => `<button data-t="${i + 1}" class="${ct == i + 1 ? 'on' : ''}" title="Only pots whose effect is at or below tier ${i + 1}">Tier ${i + 1}</button>`).join('') : '';
             $('effs').innerHTML = [''].concat(G.effs).map(e => `<button data-e="${e}" class="${S.eff == e ? 'on' : ''}" title="${G.EL[e] || ''}" style="border-color:${e ? (EFC[e] || '#888') : 'var(--line)'}">${e || 'Any'}</button>`).join('')
         }
-        const dc = e => S.pd == 'bal' ? Math.min(e.dur, 600) : e.dur, KEYS = { price: e => [e.price, e.net], net: e => [e.net, e.price], hearts: e => [e.hearts + e.temp, e.price], effect: e => [e.pow, dc(e), -e.raw], dur: e => [e.dur, e.pow, -e.raw] };
+        const KEYS = { price: e => [e.price, e.net], hearts: e => [e.hearts + e.temp, e.price], effect: e => [e.pow, e.dur, -e.raw], dur: e => [e.dur, e.pow, -e.raw] };
         const cmpK = (a, b) => { for (let i = 0; i < a.length; i++)if (a[i] != b[i]) return b[i] - a[i]; return 0 };
         function showPot() {
             $('pot').innerHTML = pot.map((n, i) => `<button class="chip" data-r="${i}" title="Remove">${n} \u00d7</button>`).join('') || '<p class="muted">Click a tile to add up to five ingredients.</p>';
             if (!pot.length) { $('out').innerHTML = ''; return }
             const d = G.cook(pot), e = d.ev;
-            $('out').innerHTML = `<div class="big">${d.name}</div><div class="price">${d.price}</div><dl><dt>Items</dt><dd>${d.n} (factor ${d.factor})</dd><dt>Ingredients' raw value</dt><dd>${d.raw}</dd><dt>Net gain</dt><dd class="${d.price >= d.raw ? 'pos' : 'warn'}">${d.price - d.raw > 0 ? '+' : ''}${d.price - d.raw}</dd>${e ? `${e.elix ? '' : `<dt>Hearts</dt><dd>${heartsHTML(e.hearts)}${e.temp ? ' + ' + e.temp + ' temp' : ''}</dd>`}<dt>Effect</dt><dd>${G.effTxt(e)}</dd>${G.timed(e.eff) ? `<dt>Duration</dt><dd>${fmt(e.dur)}</dd>` : ''}` : ''}</dl>${d.fixed ? `<p class="warn">${d.msg}</p>` : ''}<br>`
+            $('out').innerHTML = `<div class="big">${d.name}</div><div class="price">${d.price}</div><dl><dt>Items</dt><dd>${d.n} (factor ${d.factor})</dd><dt>Ingredients' raw value</dt><dd>${d.raw}</dd><dt>Net gain</dt><dd class="${d.price >= d.raw ? 'pos' : 'warn'}">${d.price - d.raw > 0 ? '+' : ''}${d.price - d.raw}</dd>${e ? `${e.elix ? '' : `<dt>Hearts</dt><dd>${heartsHTML(e.hearts)}${e.temp ? ' ' + BH(e.temp) + ' <span class="muted">+' + e.temp + '</span>' : ''}</dd>`}<dt>Effect</dt><dd>${G.effTxt(e)}</dd>${G.timed(e.eff) ? `<dt>Duration</dt><dd>${fmt(e.dur)}</dd>` : ''}` : ''}</dl>${d.fixed ? `<p class="warn">${d.msg}</p>` : ''}<br>`
         }
         function best(K) {
-            const { M, names, effs } = G, eff = S.eff, have = names.filter(n => inv[n] > 0 && vis(n)); if (!have.length) return { out: [], cnt: 0 };
+            const { M, names, effs } = G, eff = S.eff, cap = G.tiers(eff) > 1 ? S.tier : 0, have = names.filter(n => inv[n] > 0 && vis(n)); if (!have.length) return { out: [], cnt: 0 };
             const top = (a, f, k) => a.slice().sort((x, y) => f(y) - f(x)).slice(0, k), fx = have.filter(n => M[n].p), fl = have.filter(n => !M[n].p), cand = new Set();
             (eff ? fx.filter(n => M[n].p == eff) : [].concat(...effs.map(e => top(fx.filter(n => M[n].p == e), n => M[n].pt || 1, 2)))).forEach(n => cand.add(n));
             [n => M[n].s, n => M[n].h || 0, n => M[n].t || 30].forEach(f => top(fl, f, eff ? 6 : 4).forEach(n => cand.add(n)));
             const cs = [...cand].slice(0, G.maxCand), lim = G.lim, tl = [], cur = []; let cnt = 0;
-            const add = () => { cnt++; const e = G.evalPot(cur, false); if (!e || (e.elix ? !S.elix : !S.meals) || (eff && e.eff != eff)) return; const k = KEYS[S.rank](e); if (tl.length >= lim && cmpK(k, tl[tl.length - 1].k) >= 0) return; const c = { k, items: cur.slice() }; let i = tl.length; tl.push(c); while (i > 0 && cmpK(tl[i - 1].k, k) > 0) { tl[i] = tl[i - 1]; i-- } tl[i] = c; if (tl.length > lim) tl.pop() };
+            const add = () => { cnt++; const e = G.evalPot(cur, false); if (!e || (e.elix ? !S.elix : !S.meals) || (eff && e.eff != eff) || (cap && e.lvl > cap)) return; const k = KEYS[S.rank](e); if (tl.length >= lim && cmpK(k, tl[tl.length - 1].k) >= 0) return; const c = { k, items: cur.slice() }; let i = tl.length; tl.push(c); while (i > 0 && cmpK(tl[i - 1].k, k) > 0) { tl[i] = tl[i - 1]; i-- } tl[i] = c; if (tl.length > lim) tl.pop() };
             const rec = i => { if (cur.length) add(); if (cur.length >= 5) return; for (let j = i; j < cs.length; j++) { const q = Math.min(inv[cs[j]], 5 - cur.length); for (let c = 1; c <= q; c++) { cur.push(cs[j]); rec(j + 1) } for (let c = 0; c < q; c++)cur.pop() } };
-            rec(0); const out = []; for (const c of tl) { const e = G.evalPot(c.items, true); if (!e || (e.elix ? !S.elix : !S.meals) || (eff && e.eff != eff)) continue; out.push({ items: c.items, e }); if (out.length >= K) break } return { out, cnt }
+            rec(0); const out = []; for (const c of tl) { const e = G.evalPot(c.items, true); if (!e || (e.elix ? !S.elix : !S.meals) || (eff && e.eff != eff) || (cap && e.lvl > cap)) continue; out.push({ items: c.items, e }); if (out.length >= K) break } return { out, cnt }
         }
         function showBest(r, ms) {
             found = r.out; if (!found.length) { $('best').innerHTML = '<p class="warn">No valid recipe matches. Check your quantities, effect and meal/elixir choices.</p>'; return }
             $('best').innerHTML = `<p class="muted note">Checked ${r.cnt.toLocaleString()} combinations in ${(ms / 1000).toFixed(2)} s.</p>` + found.map((x, i) => {
                 const e = x.e, cnt = {}; x.items.forEach(y => cnt[y] = (cnt[y] || 0) + 1);
-                return `<div class="res"><b>${e.name}</b> <span class="price" style="font-size:22px">${e.price}</span><div class="muted">${Object.entries(cnt).map(([k, v]) => (v > 1 ? v + '\u00d7 ' : '') + k).join(', ')}</div><div>${e.elix ? '' : `Hearts ${heartsHTML(e.hearts)}${e.temp ? ' +' + e.temp + ' temp' : ''} \u00b7 `}${G.effTxt(e)}${G.timed(e.eff) ? ' \u00b7 ' + fmt(e.dur) : ''}</div><div class="muted">${x.items.length} items \u00b7 raw ${e.raw} \u00b7 net <span class="pos">${e.net > 0 ? '+' : ''}${e.net}</span> <button data-l="${i}">Load into pot</button></div></div>`
+                return `<div class="res"><b>${e.name}</b> <span class="price" style="font-size:22px">${e.price}</span><div class="muted">${Object.entries(cnt).map(([k, v]) => (v > 1 ? v + '\u00d7 ' : '') + k).join(', ')}</div><div>${e.elix ? '' : `Hearts ${heartsHTML(e.hearts)}${e.temp ? ' ' + BH(e.temp) + ' <span class="muted">+' + e.temp + '</span>' : ''} \u00b7 `}${G.effTxt(e)}${G.timed(e.eff) ? ' \u00b7 ' + fmt(e.dur) : ''}</div><div class="muted">${x.items.length} items \u00b7 raw ${e.raw} \u00b7 net <span class="pos">${e.net > 0 ? '+' : ''}${e.net}</span> <button data-l="${i}">Load into pot</button></div></div>`
             }).join('')
         }
         document.addEventListener('click', e => {
@@ -761,7 +771,8 @@
             if (d.l !== undefined) { pot = found[+d.l].items.slice(); showPot() }
             if (d.h) { S.hearts = Math.min(30, Math.max(3, S.hearts + +d.h)); setUI(); save() }
             if (d.s) { S.stam = Math.min(15, Math.max(5, S.stam + +d.s)); setUI(); save() }
-            if (d.e !== undefined) { S.eff = d.e; setUI(); save() }
+            if (d.e !== undefined) { S.eff = d.e; S.tier = 0; setUI(); save() }
+            if (d.t) { S.tier = +d.t >= G.tiers(S.eff) ? 0 : +d.t; setUI(); save() }
             if (t.id == 'clr') { pot = []; showPot() }
             if (t.id == 'cookit' && pot.length) { pot.forEach(n => { if (inv[n] > 0) { inv[n]--; if (!inv[n]) delete inv[n] } }); pot = []; save(); list(); showPot() }
             if (t.id == 'find') { $('best').innerHTML = '<p class="muted">Cooking\u2026</p>'; setTimeout(() => { const t0 = performance.now(), r = best(6); showBest(r, performance.now() - t0) }, 30) }
@@ -775,7 +786,6 @@
             if (t.dataset.q !== undefined) { const n = G.names[+t.dataset.q], v = Math.max(0, parseInt(t.value) || 0); if (v) inv[n] = v; else delete inv[n]; save() }
             if (['meals', 'elix'].includes(t.id)) { S[t.id] = t.checked; save() }
             if (t.id == 'rank') { S.rank = t.value; save() }
-            if (t.name == 'pd') { S.pd = t.value; save() }
             if (t.id == 'own') list(); if (t.id == 'rq') { recSearch(); list() }
         });
         $('hn').addEventListener('change', e => { S.hearts = Math.min(30, Math.max(3, parseInt(e.target.value) || 8)); setUI(); save(); showPot() });

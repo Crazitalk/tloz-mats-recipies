@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>LoZ Cookery &ndash; Armor Upgrades</title>
+    <title>LoZ Cookery &ndash; Armor &amp; Weapons</title>
     <style>
         :root {
             --bg: #e9eef0;
@@ -256,13 +256,22 @@
             border-color: var(--accent)
         }
 
-        .pc.none {
-            opacity: .45;
+        .pc.unowned {
+            border-color: var(--line);
+            box-shadow: none
+        }
+
+        .pc.unowned>:not(.ctl) {
+            opacity: .55;
             filter: grayscale(1)
         }
 
-        .pc.unowned:not(.none) {
-            opacity: .72
+        .chip.lim {
+            box-shadow: 0 0 0 2px var(--gold) inset
+        }
+
+        .chip.lim i {
+            font-weight: 700
         }
 
         .ph1 {
@@ -464,19 +473,21 @@
 <body>
     <header>
         <a class="navlink" href="index.html">&larr; Cooking pot</a>
-        <h1 id="ttl">Legend of Zelda Armor Upgrades</h1>
+        <h1 id="ttl">Legend of Zelda Armor &amp; Weapons</h1>
         <div class="gm" id="gm" role="group" aria-label="Game"></div>
-        <p>Track your armor and see which upgrades you can afford right now. The ingredient quantities you saved on the
-            cooking pot page are used automatically, so highlighted pieces are ones you can upgrade today.</p>
+        <p>Track your armor and see which upgrades you can afford right now, which Champion weapons you could remake if they
+            broke, and how many Ancient weapons Cherry could forge. The ingredient quantities you saved on the cooking pot
+            page are used automatically.</p>
     </header>
     <main>
         <section>
             <div class="bar">
-                <input id="q" type="search" placeholder="Search armor or ingredient" aria-label="Search armor or ingredient" size="22">
+                <input id="q" type="search" placeholder="Search armor, weapon or ingredient" aria-label="Search armor, weapon or ingredient" size="22">
                 <div class="chips" id="fchips" role="group" aria-label="Filter"></div>
             </div>
             <div class="bar">
-                <label><input type="checkbox" id="own"> Only pieces I own</label>
+                <label><input type="checkbox" id="own"> Only items I own</label>
+                <label><input type="checkbox" id="weapons"> Weapons</label>
                 <label id="lblA"><input type="checkbox" id="amiibo"> Amiibo items</label>
                 <label id="lblD"><input type="checkbox" id="dlc"> DLC items</label>
             </div>
@@ -503,6 +514,8 @@
     <script src="data-armor.js"></script>
     <script src="images.js"></script>
     <script src="armor-images.js"></script>
+    <script src="data-weapons.js"></script>
+    <script src="weapons-images.js"></script>
     <script>
         const $ = id => document.getElementById(id);
         const NAMES = { BotW: 'Breath of the Wild', TotK: 'Tears of the Kingdom' };
@@ -516,7 +529,7 @@
         /* ---------- state: this page's own choices (owned pieces, star levels, filters) ---------- */
         const A = rd('armorState1') || {};
         A.owned = A.owned || {}; A.lvl = A.lvl || {};
-        A.f = Object.assign({ filter: 'all', own: false, amiibo: true, dlc: true, plan: 'next', q: '' }, A.f);
+        A.f = Object.assign({ filter: 'all', own: false, weapons: false, amiibo: true, dlc: true, plan: 'next', q: '' }, A.f);
         if (!ARMOR[A.game]) { const st = rd('botwState3'); A.game = st && st.S && ARMOR[st.S.game] ? st.S.game : 'BotW' }
         Object.keys(ARMOR).forEach(g => { A.owned[g] = A.owned[g] || {}; A.lvl[g] = A.lvl[g] || {} });
         const save = () => { try { localStorage.setItem('armorState1', JSON.stringify(A)) } catch (e) { } };
@@ -541,6 +554,11 @@
             const m = f.match(/^(BotW|TotK)-(.+)\.(png|webp|jpe?g)$/i); if (m) (armMaps[m[1].toLowerCase()] = armMaps[m[1].toLowerCase()] || {})[key(m[2])] = 'img/armor/' + f
         });
         const armImg = (set, p) => { const m = armMaps[A.game.toLowerCase()] || {}; return m[key(p.n)] || m[key(set.name)] || '' };
+        const wepMaps = {};
+        (typeof WEAPON_IMAGES !== 'undefined' ? WEAPON_IMAGES : []).forEach(f => {
+            const m = f.match(/^(BotW|TotK)-(.+)\.(png|webp|jpe?g)$/i); if (m) (wepMaps[m[1].toLowerCase()] = wepMaps[m[1].toLowerCase()] || {})[key(m[2])] = 'img/weapons/' + f
+        });
+        const wepImg = n => (wepMaps[A.game.toLowerCase()] || {})[key(n)] || '';
         const sq = (src, label, cls) => `<span class="sq ${cls || ''}"><span class="ph">${esc(ini(label))}</span>${src ? `<img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span>`;
 
         /* ---------- armor logic ---------- */
@@ -575,7 +593,7 @@
             const { set, p, u, lvl, owned, st } = x, fees = feesOf(set, p);
             const tags = (p.a ? '<span class="tag">Amiibo</span>' : '') + (p.d ? '<span class="tag">DLC</span>' : '');
             let body;
-            if (st == 'none') body = '<div class="badge muted">Cannot be upgraded</div>';
+            if (st == 'none') body = `<div class="badge muted">Cannot be upgraded${owned ? '' : ' &middot; not owned'}</div>`;
             else {
                 let badge;
                 if (st == 'max') badge = '\u2605\u2605\u2605\u2605 fully upgraded';
@@ -588,19 +606,65 @@
                 }
                 body += `<details data-d="${esc(p.n)}" ${openP.has(p.n) ? 'open' : ''}><summary>All four stars</summary>${u.map((t, i) => `<div class="tier"><h4>${STARS(i + 1)}${fees ? ` <span class="muted">&middot; ${fees[i].toLocaleString()} rupees</span>` : ''}${i < lvl ? ' <span class="good">done</span>' : ''}</h4><div class="chips2">${t.map(c => chip(c, inv)).join('')}</div></div>`).join('')}</details>`
             }
-            const ctl = st == 'none' ? '' : `<div class="ctl"><label><input type="checkbox" data-own="${esc(p.n)}" ${owned ? 'checked' : ''}> I own this</label>${[1, 2, 3, 4].map(n => `<button class="st ${lvl >= n ? 'on' : ''}" data-lv="${n}" data-p="${esc(p.n)}" title="Set current level to ${n} star${n > 1 ? 's' : ''}" aria-label="Level ${n}">\u2605</button>`).join('')}</div>`;
+            const own = `<label><input type="checkbox" data-own="${esc(p.n)}" ${owned ? 'checked' : ''}> I own this</label>`;
+            const ctl = st == 'none' ? `<div class="ctl">${own}</div>` : `<div class="ctl">${own}${[1, 2, 3, 4].map(n => `<button class="st ${lvl >= n ? 'on' : ''}" data-lv="${n}" data-p="${esc(p.n)}" ${owned ? '' : 'disabled'} title="${owned ? `Set current level to ${n} star${n > 1 ? 's' : ''}` : 'Tick &ldquo;I own this&rdquo; first'}" aria-label="Level ${n}">\u2605</button>`).join('')}</div>`;
             return `<div class="pc ${st} ${owned ? '' : 'unowned'}">
                 <div class="ph1">${sq(armImg(set, p), p.n)}<div><b>${esc(p.n)}</b><span class="muted">${TYPE[p.t] || ''}</span>${tags}</div></div>
                 ${ctl}${body}</div>`
         }
 
+        /* ---------- weapons and shields ---------- */
+        const WT = { one: 'One-handed', two: 'Two-handed', spear: 'Spear', bow: 'Bow', shield: 'Shield', arrow: 'Arrows' };
+        const WGROUPS = [{ id: 'champion', name: 'Champion Weapons' }, { id: 'ancient', name: 'Ancient Weapons' }];
+        const wgroups = () => { const W = (typeof WEAPONS !== 'undefined' && WEAPONS[A.game]) || {}; return WGROUPS.filter(g => (W[g.id] || []).length).map(g => ({ ...g, list: W[g.id] })) };
+        function winfo(w, kind, gname, inv) {
+            const owned = !!A.owned[A.game][w.n], miss = w.req.filter(([n, q]) => (inv[n] || 0) < q);
+            const counts = w.req.map(([n, q]) => Math.floor((inv[n] || 0) / q)), N = Math.min(...counts);
+            return { w, kind, gname, owned, miss, N, counts, st: kind == 'ancient' ? (N > 0 ? 'ready' : 'short') : (miss.length ? 'short' : 'ready') }
+        }
+        function wpasses(x) {
+            const f = A.f, w = x.w, ownable = x.kind == 'champion';
+            if (f.own && ownable && !x.owned) return false;
+            if (f.filter == 'ready' && !(x.st == 'ready' && (!ownable || x.owned))) return false;
+            if (f.filter == 'short' && !(x.st == 'short' && (!ownable || x.owned))) return false;
+            if (f.filter == 'max' || f.filter == 'none') return false;
+            const q = f.q.trim().toLowerCase();
+            if (q) { const hay = [w.n, x.gname, w.base || '', w.base2 || ''].concat(w.req.map(i => i[0]), (w.extra || []).map(i => i[0])).join('|').toLowerCase(); if (!hay.includes(q)) return false }
+            return true
+        }
+        const chipW = ([n, q], inv, N) => {
+            const h = inv[n] || 0, ok = h >= q, can = Math.floor(h / q), lim = N != null && can == N;
+            return `<div class="chip ${ok ? 'ok' : 'no'} ${lim ? 'lim' : ''}" title="${esc(n)}: need ${q}, have ${h}${N != null ? ` (enough for ${can})` : ''}${lim ? ' \u2013 limiting item' : ''}">${sq(ingImg(n), n, 'sm')}<span class="t"><b>${q}&times;</b> ${esc(n)}</span><i>have ${h}${N != null ? ` &middot; ${can}&times;` : ''}</i></div>`
+        };
+        function wcard(x, inv) {
+            const { w, kind, owned, st, miss, N } = x, tags = '';
+            let body = '', ctl = '';
+            if (kind == 'champion') {
+                const bases = [w.base, w.base2].filter(Boolean);
+                ctl = `<div class="ctl"><label><input type="checkbox" data-own="${esc(w.n)}" ${owned ? 'checked' : ''}> I own this</label></div>`;
+                body = `<div class="badge ${owned ? '' : 'muted'}">${st == 'ready' ? (owned ? 'Can repair now' : 'You have the materials') : `Short ${miss.length} ingredient${miss.length > 1 ? 's' : ''} to repair`}${owned ? '' : ' &middot; not owned'}</div>
+                    <div class="chips2">${w.req.map(i => chipW(i, inv)).join('')}</div>
+                    ${bases.length ? `<div class="note muted">Also needs ${bases.map(b => '1&times; ' + esc(b)).join(' and ')} (a weapon, not tracked here)</div>` : ''}
+                    <div class="note muted">Remade by ${esc(w.who)}</div>${w.note ? `<div class="note muted">${esc(w.note)}</div>` : ''}`
+            } else {
+                const limN = w.req.filter((r, i) => x.counts[i] == N).map(r => r[0]);
+                body = `<div class="badge">${N > 0 ? `You can buy ${N}` : `Cannot buy yet &middot; short ${miss.length} ingredient${miss.length > 1 ? 's' : ''}`}</div>
+                    <div class="chips2">${w.req.map(i => chipW(i, inv, N)).join('')}</div>
+                    ${w.extra ? `<div class="note muted">Also needs ${w.extra.map(([n, q]) => q + '&times; ' + esc(n)).join(', ')} (not tracked here)</div>` : ''}
+                    <div class="note muted">${N > 0 ? `Limited by ${limN.map(esc).join(', ')}. ` : ''}Each costs ${w.rupees.toLocaleString()} rupees (not checked).</div>`
+            }
+            return `<div class="pc ${st} ${kind == 'champion' && !owned ? 'unowned' : ''}">
+                <div class="ph1">${sq(wepImg(w.img || w.n), w.n)}<div><b>${esc(w.n)}</b><span class="muted">${WT[w.t] || ''}</span>${tags}</div></div>
+                ${ctl}${body}</div>`
+        }
+
         function render() {
             const inv = readInv(), g = ARMOR[A.game];
-            document.title = `LoZ Cookery \u2013 ${NAMES[A.game]} Armor Upgrades`;
-            $('ttl').textContent = `Legend of Zelda: ${NAMES[A.game]} Armor Upgrades`;
+            document.title = `LoZ Cookery \u2013 ${NAMES[A.game]} Armor & Weapons`;
+            $('ttl').textContent = `Legend of Zelda: ${NAMES[A.game]} Armor & Weapons`;
             $('gm').innerHTML = Object.keys(ARMOR).map(k => `<button data-game="${k}" class="${k == A.game ? 'on' : ''}">${NAMES[k]}</button>`).join('');
-            $('fchips').innerHTML = [['all', 'All'], ['ready', 'Ready to upgrade'], ['short', 'Need materials'], ['max', 'Maxed'], ['none', 'Cannot upgrade']].map(([k, l]) => `<button data-f="${k}" class="${A.f.filter == k ? 'on' : ''}">${l}</button>`).join('');
-            $('own').checked = A.f.own; $('amiibo').checked = A.f.amiibo; $('dlc').checked = A.f.dlc; $('plan').value = A.f.plan;
+            $('fchips').innerHTML = [['all', 'All'], ['ready', 'Ready now'], ['short', 'Need materials'], ['max', 'Maxed'], ['none', 'Cannot upgrade']].map(([k, l]) => `<button data-f="${k}" class="${A.f.filter == k ? 'on' : ''}">${l}</button>`).join('');
+            $('own').checked = A.f.own; $('weapons').checked = A.f.weapons; $('amiibo').checked = A.f.amiibo; $('dlc').checked = A.f.dlc; $('plan').value = A.f.plan;
             if ($('q').value != A.f.q) $('q').value = A.f.q;
             const hasA = g.sets.some(s => s.pieces.some(p => p.a)), hasD = g.sets.some(s => s.pieces.some(p => p.d));
             $('lblA').style.display = hasA ? '' : 'none'; $('lblD').style.display = hasD ? '' : 'none';
@@ -614,7 +678,14 @@
                 const sImg = armImg(set, set.pieces[0]);
                 html += `<details class="set" data-s="${esc(set.name)}" ${closedS.has(set.name) ? '' : 'open'}><summary>${sq(sImg, set.name, 'sm')}${esc(set.name)}<span class="cnt">${rdy ? `<b class="good">${rdy} ready</b> &middot; ` : ''}${own} of ${xs.length} owned</span></summary><div class="grid">${xs.map(x => card(x, inv)).join('')}</div></details>`
             });
-            $('sets').innerHTML = html || '<p class="muted">No armor matches these filters.</p>';
+            let whtml = '';
+            (A.f.weapons ? wgroups() : []).forEach(gr => {
+                const xs = gr.list.map(w => winfo(w, gr.id, gr.name, inv)).filter(wpasses); if (!xs.length) return;
+                const own = xs.filter(x => x.owned).length, rdy = xs.filter(x => x.st == 'ready' && (gr.id == 'ancient' || x.owned)).length;
+                const cnt = gr.id == 'champion' ? `${rdy ? `<b class="good">${rdy} repairable</b> &middot; ` : ''}${own} of ${xs.length} owned` : `${rdy ? `<b class="good">${rdy} buyable</b> &middot; ` : ''}${xs.length} item${xs.length > 1 ? 's' : ''}`;
+                whtml += `<details class="set" data-s="${esc(gr.name)}" ${closedS.has(gr.name) ? '' : 'open'}><summary>${sq(wepImg(xs[0].w.n), gr.name, 'sm')}${esc(gr.name)}<span class="cnt">${cnt}</span></summary><div class="grid">${xs.map(x => wcard(x, inv)).join('')}</div></details>`
+            });
+            $('sets').innerHTML = (whtml + html) || '<p class="muted">Nothing matches these filters.</p>';
             summary(shown, inv); help()
         }
 
@@ -635,11 +706,13 @@
 
         function help() {
             const botw = A.game == 'BotW';
-            $('help').innerHTML = `<p class="note"><b class="good">Green</b> pieces are ones you own that you can upgrade right now with the ingredients you saved. <b style="color:var(--gold)">Gold</b> pieces are short on at least one ingredient. Faded pieces are not upgradable.</p>
-                <p class="note">Set the current star level with the star buttons (click the current level again to lower it). The card then shows the next star's ingredients, with what you have next to what you need.</p>
+            $('help').innerHTML = `<p class="note"><b class="good">Green</b> items are ones you can act on right now with the ingredients you saved: an owned armor piece you can upgrade, an owned Champion weapon you could repair, or an Ancient weapon you could buy. <b style="color:var(--gold)">Gold</b> items are short on at least one ingredient. Anything you do not own is faded until you tick &ldquo;I own this&rdquo;.</p>
+                <p class="note">Set an armor piece's current star level with the star buttons (click the current level again to lower it). Pieces that cannot be upgraded, such as the ${botw ? 'Dark and Gerudo sets' : 'Phantom set'}, can still be marked as owned.</p>
+                <p class="note">Tick <b>Weapons</b> in the filters to show the weapon groups, which are hidden by default.</p>
+                <p class="note"><b>Champion weapons</b> list the materials a smith needs to remake one that broke, plus the base weapon (not tracked here).${botw ? ' <b>Ancient weapons</b> show how many Cherry could forge from your saved materials, with the limiting ingredient outlined in gold. Rupees are not checked, and each weapon is checked on its own, so buying one uses materials the others need. Ancient arrows also need ordinary Arrows, which are listed but not tracked. Cherry\u2019s Ancient armor is on the armor list.' : ' Cherry\u2019s Ancient weapons are a Breath of the Wild feature, so none are listed for Tears of the Kingdom.'}</p>
                 <p class="note">${botw ? 'Breath of the Wild upgrades cost materials only; the Great Fairies charge rupees just to wake them.' : 'Tears of the Kingdom upgrades cost rupees as well as materials: 10, 50, 200 and 500 for stars 1 to 4 (Ancient Hero\u2019s Aspect costs more).'} The highest star you can reach depends on how many Great Fairies you have awakened.</p>
-                <p class="note muted">Quantities come from the cooking pot page and refresh when you return to this tab. They are read only here, so edit them on the cooking pot page.${botw ? '' : ' TotK values come from Prima Games and have not been verified in game.'}</p>
-                <p class="note muted">Armor images are optional: see <code>armor-images.js</code>.</p>`
+                <p class="note muted">Quantities come from the cooking pot page and refresh when you return to this tab. They are read only here, so edit them on the cooking pot page.${botw ? '' : ' TotK values come from Prima Games and Game8 and have not been verified in game.'}</p>
+                <p class="note muted">Images are optional: armor goes in <code>img/armor/</code> (<code>armor-images.js</code>) and weapons in <code>img/weapons/</code> (<code>weapons-images.js</code>).</p>`
         }
 
         /* ---------- events ---------- */
@@ -656,7 +729,7 @@
         document.addEventListener('change', e => {
             const t = e.target;
             if (t.dataset.own) { if (t.checked) A.owned[A.game][t.dataset.own] = 1; else delete A.owned[A.game][t.dataset.own]; save(); return render() }
-            if (t.id == 'own') A.f.own = t.checked; else if (t.id == 'amiibo') A.f.amiibo = t.checked; else if (t.id == 'dlc') A.f.dlc = t.checked; else if (t.id == 'plan') A.f.plan = t.value; else return;
+            if (t.id == 'own') A.f.own = t.checked; else if (t.id == 'weapons') A.f.weapons = t.checked; else if (t.id == 'amiibo') A.f.amiibo = t.checked; else if (t.id == 'dlc') A.f.dlc = t.checked; else if (t.id == 'plan') A.f.plan = t.value; else return;
             save(); render()
         });
         $('q').addEventListener('input', e => { A.f.q = e.target.value; save(); render(); const q = $('q'); q.focus() });
