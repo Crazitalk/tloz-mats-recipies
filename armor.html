@@ -427,6 +427,25 @@
             color: var(--muted)
         }
 
+        .upg {
+            float: right;
+            background: none;
+            border: 0;
+            padding: 0;
+            font: inherit;
+            font-size: 13px;
+            color: var(--good);
+            text-decoration: underline;
+            cursor: pointer
+        }
+
+        .upg:disabled {
+            color: var(--muted);
+            text-decoration: none;
+            cursor: not-allowed;
+            opacity: .7
+        }
+
         .tier h4 {
             margin: 6px 0 3px;
             font-size: 13px
@@ -535,7 +554,7 @@
         const save = () => { try { localStorage.setItem('armorState1', JSON.stringify(A)) } catch (e) { } };
         const openP = new Set(), closedS = new Set();
 
-        /* ---------- ingredient quantities saved by the cooking pot page (read only) ---------- */
+        /* ---------- ingredient quantities saved by the cooking pot page (Upgrade deducts from them) ---------- */
         const readInv = () => { const st = rd('botwState3'); return (st && st.invs && st.invs[A.game]) || {} };
         const hasAnyInv = inv => Object.values(inv).some(v => v > 0);
 
@@ -604,7 +623,7 @@
                     body += `<div class="chips2">${x.next.map(i => chip(i, inv)).join('')}</div>`;
                     if (fees) body += `<div class="note muted">Fee: ${fees[lvl].toLocaleString()} rupees</div>`
                 }
-                body += `<details data-d="${esc(p.n)}" ${openP.has(p.n) ? 'open' : ''}><summary>All four stars</summary>${u.map((t, i) => `<div class="tier"><h4>${STARS(i + 1)}${fees ? ` <span class="muted">&middot; ${fees[i].toLocaleString()} rupees</span>` : ''}${i < lvl ? ' <span class="good">done</span>' : ''}</h4><div class="chips2">${t.map(c => chip(c, inv)).join('')}</div></div>`).join('')}</details>`
+                body += `<details data-d="${esc(p.n)}" ${openP.has(p.n) ? 'open' : ''}><summary>All four stars${owned && st != 'max' ? `<button class="upg" data-up="${esc(p.n)}" ${st == 'ready' ? '' : 'disabled'} title="${st == 'ready' ? `Upgrade to ${STARS(lvl + 1)} and remove the materials from your inventory` : 'Missing materials for the next star'}">Upgrade</button>` : ''}</summary>${u.map((t, i) => `<div class="tier"><h4>${STARS(i + 1)}${fees ? ` <span class="muted">&middot; ${fees[i].toLocaleString()} rupees</span>` : ''}${i < lvl ? ' <span class="good">done</span>' : ''}</h4><div class="chips2">${t.map(c => chip(c, inv)).join('')}</div></div>`).join('')}</details>`
             }
             const own = `<label><input type="checkbox" data-own="${esc(p.n)}" ${owned ? 'checked' : ''}> I own this</label>`;
             const ctl = st == 'none' ? `<div class="ctl">${own}</div>` : `<div class="ctl">${own}${[1, 2, 3, 4].map(n => `<button class="st ${lvl >= n ? 'on' : ''}" data-lv="${n}" data-p="${esc(p.n)}" ${owned ? '' : 'disabled'} title="${owned ? `Set current level to ${n} star${n > 1 ? 's' : ''}` : 'Tick &ldquo;I own this&rdquo; first'}" aria-label="Level ${n}">\u2605</button>`).join('')}</div>`;
@@ -711,14 +730,27 @@
                 <p class="note">Tick <b>Weapons</b> in the filters to show the weapon groups, which are hidden by default.</p>
                 <p class="note"><b>Champion weapons</b> list the materials a smith needs to remake one that broke, plus the base weapon (not tracked here).${botw ? ' <b>Ancient weapons</b> show how many Cherry could forge from your saved materials, with the limiting ingredient outlined in gold. Rupees are not checked, and each weapon is checked on its own, so buying one uses materials the others need. Ancient arrows also need ordinary Arrows, which are listed but not tracked. Cherry\u2019s Ancient armor is on the armor list.' : ' Cherry\u2019s Ancient weapons are a Breath of the Wild feature, so none are listed for Tears of the Kingdom.'}</p>
                 <p class="note">${botw ? 'Breath of the Wild upgrades cost materials only; the Great Fairies charge rupees just to wake them.' : 'Tears of the Kingdom upgrades cost rupees as well as materials: 10, 50, 200 and 500 for stars 1 to 4 (Ancient Hero\u2019s Aspect costs more).'} The highest star you can reach depends on how many Great Fairies you have awakened.</p>
-                <p class="note muted">Quantities come from the cooking pot page and refresh when you return to this tab. They are read only here, so edit them on the cooking pot page.${botw ? '' : ' TotK values come from Prima Games and Game8 and have not been verified in game.'}</p>
+                <p class="note muted">Quantities come from the cooking pot page and refresh when you return to this tab. Clicking <b>Upgrade</b> on a piece removes that star's materials from them (rupees are not tracked); otherwise edit them on the cooking pot page.${botw ? '' : ' TotK values come from Prima Games and Game8 and have not been verified in game.'}</p>
                 <p class="note muted">Images are optional: armor goes in <code>img/armor/</code> (<code>armor-images.js</code>) and weapons in <code>img/weapons/</code> (<code>weapons-images.js</code>).</p>`
         }
 
         /* ---------- events ---------- */
         const find = name => { for (const s of ARMOR[A.game].sets) for (const p of s.pieces) if (p.n == name) return [s, p] };
+        /* Upgrade: spend the next star's materials from the cooking pot page's saved quantities, then raise the level.
+           Rupee fees are not tracked, so they are not deducted. */
+        function doUpgrade(nm) {
+            const fp = find(nm); if (!fp) return;
+            const [set, p] = fp, u = tiersOf(set, p), lvl = A.lvl[A.game][nm] || 0;
+            if (!A.owned[A.game][nm] || !u || lvl >= u.length) return;
+            const st = rd('botwState3') || {}, invs = st.invs = st.invs || {}, inv = invs[A.game] = invs[A.game] || {};
+            if (u[lvl].some(([n, q]) => (inv[n] || 0) < q)) return render();
+            u[lvl].forEach(([n, q]) => { inv[n] = (inv[n] || 0) - q; if (inv[n] <= 0) delete inv[n] });
+            try { localStorage.setItem('botwState3', JSON.stringify(st)) } catch (e) { return }
+            A.lvl[A.game][nm] = lvl + 1; save(); render()
+        }
         document.addEventListener('click', e => {
             const t = e.target.closest('button'); if (!t) return;
+            if (t.dataset.up) { e.preventDefault(); return doUpgrade(t.dataset.up) }
             if (t.dataset.game) { A.game = t.dataset.game; save(); return render() }
             if (t.dataset.f) { A.f.filter = t.dataset.f; save(); return render() }
             if (t.dataset.lv) {

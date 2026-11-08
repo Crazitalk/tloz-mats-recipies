@@ -791,7 +791,17 @@
         $('hn').addEventListener('change', e => { S.hearts = Math.min(30, Math.max(3, parseInt(e.target.value) || 8)); setUI(); save(); showPot() });
         $('sn').addEventListener('change', e => { S.stam = Math.min(15, Math.max(5, parseInt(e.target.value) || 10)); setUI(); save(); showPot() });
         setGame(S.game, true);
-    </script>
+            /* Pick up quantity changes made by the armor page (Upgrade button) so a stale tab cannot overwrite them */
+        const syncInv = () => {
+            try {
+                const d = JSON.parse(localStorage.getItem('botwState3') || 'null'); if (!d || !d.invs || JSON.stringify(d.invs) == JSON.stringify(invs)) return;
+                Object.keys(invs).forEach(k => delete invs[k]); Object.assign(invs, d.invs); invs.BotW = invs.BotW || {}; invs.TotK = invs.TotK || {};
+                inv = invs[S.game] = invs[S.game] || {}; list()
+            } catch (e) { }
+        };
+        window.addEventListener('storage', e => { if (e.key == 'botwState3') syncInv() });
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) syncInv() });
+</script>
 </body>
 
 </html>
